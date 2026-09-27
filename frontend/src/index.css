@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-civic-border;
+  }
+
+  body {
+    @apply bg-civic-bg text-civic-text-primary font-sans antialiased;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-civic-text-primary;
+    line-height: 1.2;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-civic-blue ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-base {
+    @apply w-full px-3.5 py-2.5 bg-white border border-civic-border rounded-lg text-civic-text-primary placeholder:text-civic-muted text-sm transition-all duration-200;
+  }
+
+  .input-base:focus {
+    @apply border-civic-blue ring-1 ring-civic-blue/20;
+  }
+
+  .card-base {
+    @apply bg-civic-surface border border-civic-border rounded-xl shadow-card;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #CBD5E1;
+    border-radius: 3px;
+  }
+}

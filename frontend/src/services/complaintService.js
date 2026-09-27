@@ -1,0 +1,136 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export const complaintService = {
+  async createComplaint(complaintData) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(complaintData),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create complaint');
+    }
+
+    return data;
+  },
+
+  async getAllComplaints(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    const url = `${API_BASE_URL}/api/complaints${queryParams ? `?${queryParams}` : ''}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch complaints');
+    }
+
+    return data;
+  },
+
+  async getUserComplaints(userId, filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    const url = `${API_BASE_URL}/api/complaints/user/${userId}${queryParams ? `?${queryParams}` : ''}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch user complaints');
+    }
+
+    return data;
+  },
+
+  async getComplaintById(id) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch complaint');
+    }
+
+    return data;
+  },
+
+  async getComplaintByComplaintId(complaintId) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/track/${complaintId}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch complaint');
+    }
+
+    return data;
+  },
+
+  async updateComplaintStatus(id, status, note) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status, note }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update complaint status');
+    }
+
+    return data;
+  },
+
+  async assignComplaint(id, officerId) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}/assign`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ officerId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to assign complaint');
+    }
+
+    return data;
+  },
+
+  async addRemark(id, text) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}/remarks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to add remark');
+    }
+
+    return data;
+  },
+
+  async getComplaintStats() {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/stats`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch statistics');
+    }
+
+    return data;
+  }
+};

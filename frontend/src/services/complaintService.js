@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { authService } from './authService';
+
+const API_BASE_URL = ''; // Use relative paths to leverage Vite proxy
 
 export const complaintService = {
   async createComplaint(complaintData) {
@@ -6,6 +8,7 @@ export const complaintService = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
       },
       body: JSON.stringify(complaintData),
     });
@@ -13,7 +16,7 @@ export const complaintService = {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to create complaint');
+      throw new Error(data.message || data.error || 'Failed to create complaint');
     }
 
     return data;
@@ -23,7 +26,9 @@ export const complaintService = {
     const queryParams = new URLSearchParams(filters).toString();
     const url = `${API_BASE_URL}/api/complaints${queryParams ? `?${queryParams}` : ''}`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: authService.getAuthHeaders(),
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -37,7 +42,9 @@ export const complaintService = {
     const queryParams = new URLSearchParams(filters).toString();
     const url = `${API_BASE_URL}/api/complaints/user/${userId}${queryParams ? `?${queryParams}` : ''}`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: authService.getAuthHeaders(),
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -48,7 +55,9 @@ export const complaintService = {
   },
 
   async getComplaintById(id) {
-    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}`);
+    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}`, {
+      headers: authService.getAuthHeaders(),
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -74,6 +83,7 @@ export const complaintService = {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
       },
       body: JSON.stringify({ status, note }),
     });
@@ -87,11 +97,31 @@ export const complaintService = {
     return data;
   },
 
+  async updateComplaintPriority(id, priority, note) {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/${id}/priority`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
+      },
+      body: JSON.stringify({ priority, note }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update complaint priority');
+    }
+
+    return data;
+  },
+
   async assignComplaint(id, officerId) {
     const response = await fetch(`${API_BASE_URL}/api/complaints/${id}/assign`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
       },
       body: JSON.stringify({ officerId }),
     });
@@ -110,6 +140,7 @@ export const complaintService = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
       },
       body: JSON.stringify({ text }),
     });
@@ -124,7 +155,9 @@ export const complaintService = {
   },
 
   async getComplaintStats() {
-    const response = await fetch(`${API_BASE_URL}/api/complaints/stats`);
+    const response = await fetch(`${API_BASE_URL}/api/complaints/stats`, {
+      headers: authService.getAuthHeaders(),
+    });
     const data = await response.json();
 
     if (!response.ok) {

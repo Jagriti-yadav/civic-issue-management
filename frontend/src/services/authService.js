@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = ''; // Use relative paths to leverage Vite proxy
 
 export const authService = {
   async login(email, password) {
@@ -16,9 +16,10 @@ export const authService = {
       throw new Error(data.message || 'Login failed');
     }
 
-    // Store user data in localStorage
+    // Store user data and token in localStorage
     localStorage.setItem('user', JSON.stringify(data.user));
-    
+    localStorage.setItem('token', data.token);
+
     return data;
   },
 
@@ -37,14 +38,16 @@ export const authService = {
       throw new Error(data.message || 'Registration failed');
     }
 
-    // Store user data in localStorage
+    // Store user data and token in localStorage
     localStorage.setItem('user', JSON.stringify(data.user));
-    
+    localStorage.setItem('token', data.token);
+
     return data;
   },
 
   logout() {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
   },
 
   getCurrentUser() {
@@ -52,7 +55,16 @@ export const authService = {
     return userStr ? JSON.parse(userStr) : null;
   },
 
+  getToken() {
+    return localStorage.getItem('token');
+  },
+
   isAuthenticated() {
-    return !!this.getCurrentUser();
+    return !!this.getCurrentUser() && !!this.getToken();
+  },
+
+  getAuthHeaders() {
+    const token = this.getToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
   }
 };

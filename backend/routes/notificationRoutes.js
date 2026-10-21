@@ -1,4 +1,5 @@
 import express from 'express';
+import { auth } from '../middleware/auth.js';
 import {
   createNotification,
   getUserNotifications,
@@ -10,22 +11,22 @@ import {
 
 const router = express.Router();
 
-// Create new notification
-router.post('/', createNotification);
+// Create new notification (system use - typically super_admin only)
+router.post('/', auth, createNotification);
 
-// Get all notifications for a user
-router.get('/user/:userId', getUserNotifications);
+// Get all notifications for a user (authenticated users)
+router.get('/user/:userId', auth, getUserNotifications);
 
-// Get unread notification count for a user
-router.get('/user/:userId/unread-count', getUnreadCount);
+// Get unread notification count for a user (authenticated users)
+router.get('/user/:userId/unread-count', auth, getUnreadCount);
 
-// Mark notification as read
-router.patch('/:id/read', markAsRead);
+// Mark notification as read (authenticated users)
+router.patch('/:id/read', auth, markAsRead);
 
-// Mark all notifications as read for a user
-router.patch('/user/:userId/read-all', markAllAsRead);
+// Mark all notifications as read for a user (authenticated users)
+router.patch('/user/:userId/read-all', auth, markAllAsRead);
 
-// Delete notification
-router.delete('/:id', deleteNotification);
+// Delete notification (authenticated users)
+router.delete('/:id', auth, deleteNotification);
 
 export default router;

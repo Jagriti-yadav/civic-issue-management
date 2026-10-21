@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const complaintSchema = new mongoose.Schema({
   complaintId: {
     type: String,
-    required: true,
+    required: false,
     unique: true,
     index: true
   },
@@ -38,6 +38,19 @@ const complaintSchema = new mongoose.Schema({
     latitude: Number,
     longitude: Number,
     landmark: String
+  },
+  phoneNumber: {
+    type: String,
+    required: true,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        // Validate phone number with country code support
+        // Accepts formats: +1234567890, +1 234 567 890, etc.
+        return /^\+?[1-9]\d{1,14}$/.test(v.replace(/[\s\-\(\)]/g, ''));
+      },
+      message: 'Please provide a valid phone number with country code'
+    }
   },
   images: [String],
   submittedBy: {

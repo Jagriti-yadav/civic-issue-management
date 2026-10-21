@@ -10,7 +10,7 @@ import { PriorityBadge } from '@/components/common/PriorityBadge';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { complaintService } from '@/services/complaintService';
-import { ArrowLeft, FileText, MapPin, Calendar, User, Clock, Building2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, FileText, MapPin, Calendar, User, Clock, Building2, AlertCircle, Phone } from 'lucide-react';
 
 export function ComplaintDetailsPage() {
   const { id } = useParams();
@@ -244,6 +244,14 @@ export function ComplaintDetailsPage() {
                 <div>
                   <p className="text-sm font-medium text-civic-text-primary">Department</p>
                   <p className="text-sm text-civic-text-secondary">{complaint.department}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Phone size={18} className="text-civic-text-secondary mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-civic-text-primary">Contact Number</p>
+                  <p className="text-sm text-civic-text-secondary">{complaint.phoneNumber || 'Not provided'}</p>
                 </div>
               </div>
 

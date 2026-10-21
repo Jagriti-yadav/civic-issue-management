@@ -44,7 +44,7 @@ export function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    
+
     setLoading(true);
     try {
       await register(form.name, form.email, form.password);

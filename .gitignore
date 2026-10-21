@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
-
+.vite/
+dist/
 # Build output
 # dist-ssr/
 # Note: dist/ is included for GitHub Pages branch deployment

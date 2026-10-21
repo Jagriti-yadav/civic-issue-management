@@ -1,4 +1,8 @@
 import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // Register a new user
 export const register = async (req, res) => {
@@ -49,10 +53,18 @@ export const register = async (req, res) => {
 
     const user = await User.create(userData);
 
-    // Return user without password
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    // Return user without password and token
     res.status(201).json({
       success: true,
       message: 'Registration successful',
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -110,10 +122,18 @@ export const login = async (req, res) => {
       });
     }
 
-    // Return user without password
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    // Return user without password and token
     res.status(200).json({
       success: true,
       message: 'Login successful',
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -124,7 +144,6 @@ export const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Login failed'

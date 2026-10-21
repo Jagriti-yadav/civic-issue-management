@@ -10,7 +10,8 @@ export function AuthProvider({ children }) {
   // Check for existing user session on mount
   useEffect(() => {
     const currentUser = authService.getCurrentUser();
-    if (currentUser) {
+    const token = authService.getToken();
+    if (currentUser && token) {
       setUser(currentUser);
     }
   }, []);
@@ -49,7 +50,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
-    isAuthenticated: !!user,
+    isAuthenticated: authService.isAuthenticated(),
     login,
     register,
     logout,

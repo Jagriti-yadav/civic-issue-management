@@ -98,7 +98,7 @@ export function CitizenDashboard() {
         action={
           <Link to="/citizen/submit-complaint">
             <Button size="sm" leftIcon={<Plus size={16} />}>
-              New Complaint
+              Submit New Complaint
             </Button>
           </Link>
         }
@@ -120,7 +120,7 @@ export function CitizenDashboard() {
             action={
               <Link to="/citizen/submit-complaint">
                 <Button variant="primary" leftIcon={<Plus size={16} />}>
-                  Submit Complaint
+                  Submit New Complaint
                 </Button>
               </Link>
             }

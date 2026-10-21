@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 import { ToastProvider } from '@/context/ToastContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 
 import { LandingPage } from '@/pages/landing/LandingPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
@@ -18,6 +19,7 @@ import { ProfilePage } from '@/pages/citizen/ProfilePage';
 import { OfficerDashboard } from '@/pages/officer/OfficerDashboard';
 import { DepartmentHeadDashboard } from '@/pages/departmentHead/DepartmentHeadDashboard';
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
+import { AdminComplaintManagement } from '@/pages/admin/AdminComplaintManagement';
 
 function ProtectedDashboard({ role, user }) {
   const { logout } = useAuth();
@@ -39,7 +41,11 @@ function AppRoutes() {
       <Route path="/track" element={<TrackComplaintPage />} />
 
       {/* Citizen routes */}
-      <Route path="/citizen" element={<ProtectedDashboard role="citizen" user={user} />}>
+      <Route path="/citizen" element={
+        <ProtectedRoute allowedRoles={['citizen']}>
+          <ProtectedDashboard role="citizen" user={user} />
+        </ProtectedRoute>
+      }>
         <Route path="dashboard" element={<CitizenDashboard />} />
         <Route path="submit-complaint" element={<SubmitComplaintPage />} />
         <Route path="complaints" element={<MyComplaintsPage />} />
@@ -50,18 +56,32 @@ function AppRoutes() {
       </Route>
 
       {/* Officer routes */}
-      <Route path="/officer" element={<ProtectedDashboard role="officer" user={user} />}>
+      <Route path="/officer" element={
+        <ProtectedRoute allowedRoles={['officer']}>
+          <ProtectedDashboard role="officer" user={user} />
+        </ProtectedRoute>
+      }>
         <Route path="dashboard" element={<OfficerDashboard />} />
+        <Route path="complaints" element={<OfficerDashboard />} />
       </Route>
 
       {/* Department Head routes */}
-      <Route path="/department-head" element={<ProtectedDashboard role="department_head" user={user} />}>
+      <Route path="/department-head" element={
+        <ProtectedRoute allowedRoles={['department_head']}>
+          <ProtectedDashboard role="department_head" user={user} />
+        </ProtectedRoute>
+      }>
         <Route path="dashboard" element={<DepartmentHeadDashboard />} />
       </Route>
 
       {/* Super Admin routes */}
-      <Route path="/admin" element={<ProtectedDashboard role="super_admin" user={user} />}>
+      <Route path="/admin" element={
+        <ProtectedRoute allowedRoles={['super_admin']}>
+          <ProtectedDashboard role="super_admin" user={user} />
+        </ProtectedRoute>
+      }>
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="complaints" element={<AdminComplaintManagement />} />
       </Route>
 
       {/* 404 */}

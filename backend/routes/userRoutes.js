@@ -1,5 +1,8 @@
 import express from 'express';
+import { auth, authorize } from '../middleware/auth.js';
 import {
+  getDepartments,
+  getOfficersByDepartment,
   getUserById,
   updateUser,
   changePassword
@@ -7,13 +10,20 @@ import {
 
 const router = express.Router();
 
-// Get user by ID
-router.get('/:id', getUserById);
+// Specific routes must come before parameterized routes
+// Get all departments (admin, department_head, super_admin)
+router.get('/departments/list', auth, authorize('department_head', 'super_admin'), getDepartments);
 
-// Update user profile
-router.patch('/:id', updateUser);
+// Get officers by department (admin, department_head, super_admin)
+router.get('/officers/department/:department', auth, authorize('department_head', 'super_admin'), getOfficersByDepartment);
 
-// Change password
-router.patch('/:id/password', changePassword);
+// Get user by ID (authenticated users) - must be last to avoid conflicts
+router.get('/:id', auth, getUserById);
+
+// Update user profile (authenticated users)
+router.patch('/:id', auth, updateUser);
+
+// Change password (authenticated users)
+router.patch('/:id/password', auth, changePassword);
 
 export default router;

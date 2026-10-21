@@ -35,12 +35,12 @@ export function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    
+
     setLoading(true);
     try {
       const data = await login(form.email, form.password);
       toast.success('Login successful!');
-      
+
       // Redirect based on user role from the login response
       const user = data.user;
       if (user?.role === 'citizen') {

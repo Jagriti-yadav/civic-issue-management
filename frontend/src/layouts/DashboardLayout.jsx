@@ -4,6 +4,15 @@ import { Logo } from '@/components/common/Logo';
 import { Avatar } from '@/components/common/Avatar';
 import { notificationService } from '@/services/notificationService';
 import { useAuth } from '@/context/AuthContext';
+import {
+  LayoutDashboard, FileText, Search, Bell, User, Users,
+  Shield, Building2, BarChart3, LogOut, Menu, X, Plus,
+} from 'lucide-react';
+
+const ICON_MAP = {
+  LayoutDashboard, FileText, Search, Bell, User, Users,
+  Shield, Building2, BarChart3, Plus, LogOut, Menu, X,
+};
 
 const ROLE_CONFIG = {
   citizen: {
@@ -13,6 +22,7 @@ const ROLE_CONFIG = {
     basePath: '/citizen',
     nav: [
       { to: '/citizen/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+      { to: '/citizen/submit-complaint', label: 'Submit Complaint', icon: 'Plus' },
       { to: '/citizen/complaints', label: 'My Complaints', icon: 'FileText' },
       { to: '/citizen/track', label: 'Track Complaint', icon: 'Search' },
       { to: '/citizen/notifications', label: 'Notifications', icon: 'Bell' },
@@ -59,17 +69,6 @@ const ROLE_CONFIG = {
       { to: '/admin/profile', label: 'Profile', icon: 'User' },
     ],
   },
-};
-
-// Icon registry — must explicitly import each icon used above
-import {
-  LayoutDashboard, FileText, Search, Bell, User, Users,
-  Shield, Building2, BarChart3, LogOut, Menu, X,
-} from 'lucide-react';
-
-const ICON_MAP = {
-  LayoutDashboard, FileText, Search, Bell, User, Users,
-  Shield, Building2, BarChart3,
 };
 
 export function DashboardLayout({ role, user, onLogout }) {

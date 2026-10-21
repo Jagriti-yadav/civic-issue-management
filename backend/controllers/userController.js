@@ -1,5 +1,68 @@
 import User from '../models/User.js';
 
+// Get all departments
+export const getDepartments = async (req, res) => {
+  try {
+    // Get unique departments from active officers
+    const departments = await User.distinct('department', {
+      role: 'officer',
+      isActive: true,
+      department: { $ne: null, $ne: '' }
+    });
+
+    // Also include departments from complaints to ensure all departments are covered
+    const Complaint = (await import('../models/Complaint.js')).default;
+    const complaintDepartments = await Complaint.distinct('department');
+    
+    // Merge and deduplicate
+    const allDepartments = [...new Set([...departments, ...complaintDepartments])].filter(Boolean).sort();
+
+    res.status(200).json({
+      success: true,
+      departments: allDepartments
+    });
+  } catch (error) {
+    console.error('Get departments error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch departments',
+      error: error.message
+    });
+  }
+};
+
+// Get officers by department
+export const getOfficersByDepartment = async (req, res) => {
+  try {
+    const { department } = req.params;
+
+    if (!department) {
+      return res.status(400).json({
+        success: false,
+        message: 'Department is required'
+      });
+    }
+
+    const officers = await User.find({
+      role: 'officer',
+      department: department,
+      isActive: true
+    }).select('name email department isActive createdAt');
+
+    res.status(200).json({
+      success: true,
+      officers
+    });
+  } catch (error) {
+    console.error('Get officers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch officers',
+      error: error.message
+    });
+  }
+};
+
 // Get user by ID
 export const getUserById = async (req, res) => {
   try {

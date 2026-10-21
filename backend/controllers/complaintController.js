@@ -5,14 +5,14 @@ import Notification from '../models/Notification.js';
 // Create a new complaint
 export const createComplaint = async (req, res) => {
   try {
-    const { title, description, category, priority, location, images, submittedBy } = req.body;
+    const { title, description, category, priority, location, phoneNumber, images, submittedBy } = req.body;
     const userId = req.user?.id || submittedBy; // Will come from auth middleware later
 
     // Validate required fields
-    if (!title || !description || !category) {
+    if (!title || !description || !category || !phoneNumber) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide title, description, and category'
+        message: 'Please provide title, description, category, and phone number'
       });
     }
 
@@ -49,7 +49,8 @@ export const createComplaint = async (req, res) => {
       priority: priority || 'medium',
       status: 'pending',
       location: location || {},
-      images: images || [],
+      phoneNumber: phoneNumber.trim(),
+      images: Array.isArray(images) ? images.filter(img => img && typeof img === 'string') : [],
       submittedBy: finalSubmittedBy,
       department,
       aiClassification: {
@@ -79,7 +80,6 @@ export const createComplaint = async (req, res) => {
         relatedComplaint: complaint._id
       });
     } catch (notificationError) {
-      console.error('Failed to create notification:', notificationError);
       // Don't fail the complaint creation if notification creation fails
     }
 
@@ -95,6 +95,7 @@ export const createComplaint = async (req, res) => {
         priority: complaint.priority,
         status: complaint.status,
         location: complaint.location,
+        phoneNumber: complaint.phoneNumber,
         images: complaint.images,
         department: complaint.department,
         createdAt: complaint.createdAt
@@ -202,12 +203,38 @@ export const getComplaintByComplaintId = async (req, res) => {
   }
 };
 
+// Valid status transitions
+const VALID_TRANSITIONS = {
+  pending: ['assigned', 'rejected'],
+  assigned: ['in_progress', 'rejected'],
+  in_progress: ['resolved', 'rejected'],
+  resolved: [], // No transitions from resolved
+  rejected: [] // No transitions from rejected
+};
+
 // Update complaint status
 export const updateComplaintStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, note } = req.body;
-    const userId = req.user?.id || '67a000000000000000000001'; // Mock user ID
+    const userId = req.user?.id;
+
+    // Validate inputs
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+
+    // Validate status value
+    const validStatuses = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value'
+      });
+    }
 
     const complaint = await Complaint.findById(id);
     if (!complaint) {
@@ -217,11 +244,33 @@ export const updateComplaintStatus = async (req, res) => {
       });
     }
 
+    // Validate status transition
+    const currentStatus = complaint.status;
+    const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
+    
+    if (currentStatus === status) {
+      return res.status(400).json({
+        success: false,
+        message: `Complaint is already ${status}`
+      });
+    }
+
+    if (allowedTransitions.length > 0 && !allowedTransitions.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot transition from ${currentStatus} to ${status}. Allowed transitions: ${allowedTransitions.join(', ')}`
+      });
+    }
+
+    // Store previous status for history
+    const previousStatus = complaint.status;
+    
+    // Update status
     complaint.status = status;
     complaint.statusHistory.push({
       status,
       changedBy: userId,
-      note: note || `Status changed to ${status}`
+      note: note || `Status changed from ${previousStatus} to ${status}`
     });
 
     if (status === 'resolved') {
@@ -256,7 +305,13 @@ export const updateComplaintStatus = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Complaint status updated successfully',
-      complaint
+      complaint: {
+        id: complaint._id,
+        complaintId: complaint.complaintId,
+        status: complaint.status,
+        previousStatus,
+        updatedAt: complaint.updatedAt
+      }
     });
   } catch (error) {
     console.error('Update status error:', error);
@@ -268,11 +323,87 @@ export const updateComplaintStatus = async (req, res) => {
   }
 };
 
+// Update complaint priority
+export const updateComplaintPriority = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { priority, note } = req.body;
+    const userId = req.user?.id;
+
+    // Validate inputs
+    if (!priority) {
+      return res.status(400).json({
+        success: false,
+        message: 'Priority is required'
+      });
+    }
+
+    // Validate priority value
+    const validPriorities = ['low', 'medium', 'high', 'critical'];
+    if (!validPriorities.includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid priority value'
+      });
+    }
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: 'Complaint not found'
+      });
+    }
+
+    // Store previous priority
+    const previousPriority = complaint.priority;
+    
+    // Update priority
+    complaint.priority = priority;
+    
+    // Add to status history for tracking
+    complaint.statusHistory.push({
+      status: complaint.status, // Current status unchanged
+      changedBy: userId,
+      note: note || `Priority changed from ${previousPriority} to ${priority}`
+    });
+
+    await complaint.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Complaint priority updated successfully',
+      complaint: {
+        id: complaint._id,
+        complaintId: complaint.complaintId,
+        priority: complaint.priority,
+        previousPriority,
+        updatedAt: complaint.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Update priority error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update complaint priority',
+      error: error.message
+    });
+  }
+};
+
 // Assign complaint to officer
 export const assignComplaint = async (req, res) => {
   try {
     const { id } = req.params;
     const { officerId } = req.body;
+
+    // Validate inputs
+    if (!officerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Officer ID is required'
+      });
+    }
 
     const complaint = await Complaint.findById(id);
     if (!complaint) {
@@ -283,27 +414,89 @@ export const assignComplaint = async (req, res) => {
     }
 
     const officer = await User.findById(officerId);
-    if (!officer || officer.role !== 'officer') {
-      return res.status(400).json({
+    if (!officer) {
+      return res.status(404).json({
         success: false,
-        message: 'Invalid officer'
+        message: 'Officer not found'
       });
     }
 
+    // Validate officer role
+    if (officer.role !== 'officer') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not an officer'
+      });
+    }
+
+    // Validate officer is active
+    if (!officer.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Officer is not active'
+      });
+    }
+
+    // Validate department matching
+    if (officer.department && complaint.department) {
+      if (officer.department !== complaint.department) {
+        return res.status(400).json({
+          success: false,
+          message: `Officer belongs to ${officer.department} but complaint is for ${complaint.department}`
+        });
+      }
+    }
+
+    // Check if already assigned
+    if (complaint.assignedTo) {
+      const existingOfficer = await User.findById(complaint.assignedTo);
+      return res.status(400).json({
+        success: false,
+        message: `Complaint is already assigned to ${existingOfficer?.name || 'an officer'}`
+      });
+    }
+
+    // Assign the complaint
     complaint.assignedTo = officerId;
     complaint.status = 'assigned';
     complaint.statusHistory.push({
       status: 'assigned',
-      changedBy: req.user?.id || '67a000000000000000000001',
-      note: `Assigned to officer ${officer.name}`
+      changedBy: req.user?.id || officerId,
+      note: `Assigned to officer ${officer.name} (${officer.department})`
     });
 
     await complaint.save();
 
+    // Create notification for the officer
+    try {
+      const Notification = (await import('../models/Notification.js')).default;
+      await Notification.create({
+        recipient: officerId,
+        title: 'New Complaint Assigned',
+        message: `Complaint ${complaint.complaintId} has been assigned to you. ${complaint.title}`,
+        type: 'complaint_assigned',
+        relatedComplaint: complaint._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create notification:', notificationError);
+      // Don't fail the assignment if notification creation fails
+    }
+
     res.status(200).json({
       success: true,
       message: 'Complaint assigned successfully',
-      complaint
+      complaint: {
+        id: complaint._id,
+        complaintId: complaint.complaintId,
+        title: complaint.title,
+        status: complaint.status,
+        assignedTo: {
+          id: officer._id,
+          name: officer.name,
+          email: officer.email,
+          department: officer.department
+        }
+      }
     });
   } catch (error) {
     console.error('Assign complaint error:', error);

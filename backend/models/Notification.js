@@ -18,7 +18,17 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['complaint_submitted', 'complaint_assigned', 'complaint_in_progress', 'complaint_resolved', 'complaint_rejected', 'general'],
+    enum: [
+      'complaint_submitted',
+      'complaint_assigned',
+      'complaint_reassigned',
+      'complaint_in_progress',
+      'complaint_resolved',
+      'complaint_rejected',
+      'complaint_priority_changed',
+      'complaint_update',
+      'general'
+    ],
     default: 'general'
   },
   relatedComplaint: {

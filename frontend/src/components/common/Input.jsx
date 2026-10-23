@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { motion } from 'framer-motion';
 
 export const Input = forwardRef(function Input(
   {
@@ -33,7 +34,7 @@ export const Input = forwardRef(function Input(
             {leftIcon}
           </div>
         )}
-        <input
+        <motion.input
           ref={ref}
           id={inputId}
           className={`input-base ${leftIcon ? 'pl-10' : ''} ${
@@ -41,6 +42,8 @@ export const Input = forwardRef(function Input(
           } ${error ? 'border-status-rejected ring-1 ring-status-rejected/20' : ''} ${className}`}
           aria-invalid={!!error}
           aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
+          whileFocus={{ scale: 1.01 }}
+          transition={{ duration: 0.15 }}
           {...props}
         />
         {rightIcon && (

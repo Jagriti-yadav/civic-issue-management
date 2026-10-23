@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/common/Logo';
 import { Button } from '@/components/common/Button';
+import { StatsSection } from '@/components/common/Stats3DCard';
+import { motion } from 'framer-motion';
 import {
   ShieldCheck, ArrowRight, Search, Users, UserCog, Shield,
   MapPin, Clock, CheckCircle2, FileText, Bell, BarChart3,
-  Zap, Building2, ArrowUpRight, ChevronRight,
+  ArrowUpRight, ChevronRight, Building2, Zap,
 } from 'lucide-react';
 
 const ROLE_CARDS = [
@@ -103,6 +105,27 @@ const WORKFLOW_STEPS = [
   { step: 'Track', icon: BarChart3, description: 'Citizen and admin track the complete journey' },
 ];
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.4
+    }
+  }
+};
+
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-civic-bg">
@@ -189,26 +212,7 @@ export function LandingPage() {
       </section>
 
       {/* Stats bar */}
-      <section className="bg-white border-y border-civic-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              { value: '9', label: 'Departments', icon: Building2 },
-              { value: '4', label: 'User Roles', icon: Users },
-              { value: '10+', label: 'Issue Categories', icon: FileText },
-              { value: 'AI', label: 'Smart Classification', icon: Zap },
-            ].map((stat, i) => (
-              <div key={i} className="text-center">
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-civic-hover mb-2">
-                  <stat.icon size={20} className="text-civic-blue" />
-                </div>
-                <p className="text-2xl font-bold text-civic-text-primary">{stat.value}</p>
-                <p className="text-sm text-civic-text-secondary">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <StatsSection />
 
       {/* Role Cards */}
       <section id="roles" className="py-20 lg:py-28">
@@ -223,47 +227,64 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
             {ROLE_CARDS.map((card) => {
               const Icon = card.icon;
               return (
-                <Link
+                <motion.div
                   key={card.role}
-                  to={card.href}
-                  className="group card-base p-6 hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300"
-                  style={{ borderTopColor: card.accent, borderTopWidth: '3px' }}
+                  variants={itemVariants}
                 >
-                  <div
-                    className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
-                    style={{ backgroundColor: `${card.accent}15` }}
+                  <Link
+                    to={card.href}
+                    className="group card-base p-6 block"
+                    style={{ borderTopColor: card.accent, borderTopWidth: '3px' }}
                   >
-                    <Icon size={24} style={{ color: card.accent }} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-civic-text-primary mb-2">
-                    {card.role}
-                  </h3>
-                  <p className="text-sm text-civic-text-secondary mb-4 leading-relaxed">
-                    {card.description}
-                  </p>
-                  <ul className="space-y-2 mb-5">
-                    {card.features.map((feat, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-civic-text-primary">
-                        <CheckCircle2 size={15} className="text-status-resolved flex-shrink-0 mt-0.5" />
-                        {feat}
-                      </li>
-                    ))}
-                  </ul>
-                  <div
-                    className="flex items-center gap-1.5 text-sm font-medium transition-colors"
-                    style={{ color: card.accent }}
-                  >
-                    {card.cta}
-                    <ArrowUpRight size={16} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  </div>
-                </Link>
+                    <motion.div
+                      className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
+                      style={{ backgroundColor: `${card.accent}15` }}
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Icon size={24} style={{ color: card.accent }} />
+                    </motion.div>
+                    <h3 className="text-lg font-semibold text-civic-text-primary mb-2">
+                      {card.role}
+                    </h3>
+                    <p className="text-sm text-civic-text-secondary mb-4 leading-relaxed">
+                      {card.description}
+                    </p>
+                    <ul className="space-y-2 mb-5">
+                      {card.features.map((feat, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-civic-text-primary">
+                          <CheckCircle2 size={15} className="text-status-resolved flex-shrink-0 mt-0.5" />
+                          {feat}
+                        </li>
+                      ))}
+                    </ul>
+                    <div
+                      className="flex items-center gap-1.5 text-sm font-medium"
+                      style={{ color: card.accent }}
+                    >
+                      {card.cta}
+                      <motion.div
+                        whileHover={{ x: 4, y: -4 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ArrowUpRight size={16} />
+                      </motion.div>
+                    </div>
+                  </Link>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -280,24 +301,40 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
             {FEATURES.map((feature, i) => {
               const Icon = feature.icon;
               return (
-                <div key={i} className="card-base p-6 hover:shadow-card-hover transition-shadow duration-300">
-                  <div className={`w-11 h-11 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}>
+                <motion.div
+                  key={i}
+                  variants={itemVariants}
+                  className="card-base p-6 hover:shadow-card-hover transition-shadow duration-300"
+                  whileHover={{ y: -4 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div
+                    className={`w-11 h-11 rounded-lg ${feature.bg} flex items-center justify-center mb-4`}
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <Icon size={22} className={feature.color} />
-                  </div>
+                  </motion.div>
                   <h3 className="text-base font-semibold text-civic-text-primary mb-2">
                     {feature.title}
                   </h3>
                   <p className="text-sm text-civic-text-secondary leading-relaxed">
                     {feature.description}
                   </p>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -317,17 +354,31 @@ export function LandingPage() {
             {/* Connecting line */}
             <div className="hidden lg:block absolute top-12 left-[10%] right-[10%] h-0.5 bg-civic-border" />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-4 relative">
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-4 relative"
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-100px" }}
+            >
               {WORKFLOW_STEPS.map((step, i) => {
                 const Icon = step.icon;
                 return (
-                  <div key={i} className="flex flex-col items-center text-center relative">
-                    <div className="relative z-10 w-14 h-14 rounded-full bg-white border-2 border-civic-border flex items-center justify-center mb-4 transition-all duration-300 hover:border-civic-blue hover:shadow-card-hover">
+                  <motion.div
+                    key={i}
+                    variants={itemVariants}
+                    className="flex flex-col items-center text-center relative"
+                  >
+                    <motion.div
+                      className="relative z-10 w-14 h-14 rounded-full bg-white border-2 border-civic-border flex items-center justify-center mb-4"
+                      whileHover={{ scale: 1.1, borderColor: '#1D4ED8' }}
+                      transition={{ duration: 0.2 }}
+                    >
                       <Icon size={24} className="text-civic-blue" />
                       <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-civic-blue text-white text-xs font-bold flex items-center justify-center">
                         {i + 1}
                       </div>
-                    </div>
+                    </motion.div>
                     <h3 className="text-base font-semibold text-civic-text-primary mb-1.5">
                       {step.step}
                     </h3>
@@ -337,10 +388,10 @@ export function LandingPage() {
                     {i < WORKFLOW_STEPS.length - 1 && (
                       <ChevronRight size={20} className="text-civic-muted absolute top-12 -right-2 hidden lg:block" />
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>

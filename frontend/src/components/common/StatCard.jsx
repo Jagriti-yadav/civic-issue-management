@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export function StatCard({ label, value, icon: Icon, color = 'blue', trend = null, subtitle = null }) {
   const colorMap = {
@@ -17,7 +18,14 @@ export function StatCard({ label, value, icon: Icon, color = 'blue', trend = nul
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-civic-text-secondary">{label}</p>
-          <p className="mt-1.5 text-2xl font-bold text-civic-text-primary tabular-nums">{value}</p>
+          <motion.p
+            className="mt-1.5 text-2xl font-bold text-civic-text-primary tabular-nums"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            {value}
+          </motion.p>
           {subtitle && (
             <p className="mt-0.5 text-xs text-civic-muted">{subtitle}</p>
           )}
@@ -36,9 +44,13 @@ export function StatCard({ label, value, icon: Icon, color = 'blue', trend = nul
           )}
         </div>
         {Icon && (
-          <div className={`flex-shrink-0 p-3 rounded-lg ${c.iconBg}`}>
+          <motion.div
+            className={`flex-shrink-0 p-3 rounded-lg ${c.iconBg}`}
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ duration: 0.2 }}
+          >
             <Icon size={22} className={c.text} />
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

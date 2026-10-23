@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+
 export function Table({ columns, data, loading = false, emptyState = null, onRowClick = null }) {
   if (loading) {
     return (
@@ -71,19 +73,22 @@ export function Table({ columns, data, loading = false, emptyState = null, onRow
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <tr
+            <motion.tr
               key={row._id || i}
               onClick={() => onRowClick?.(row)}
               className={`border-b border-civic-border last:border-0 transition-colors ${
                 onRowClick ? 'cursor-pointer hover:bg-civic-hover' : ''
               }`}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2, delay: i * 0.05 }}
             >
               {columns.map((col, j) => (
                 <td key={j} className={`text-${col.align || 'left'} px-4 py-3.5 text-sm text-civic-text-primary`}>
                   {col.render ? col.render(row) : col.key ? row[col.key] : null}
                 </td>
               ))}
-            </tr>
+            </motion.tr>
           ))}
         </tbody>
       </table>

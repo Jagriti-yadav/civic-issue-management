@@ -82,11 +82,28 @@ export function DashboardLayout({ role, user, onLogout }) {
 
   // Load unread notification count
   useEffect(() => {
-    if (authUser?.id && role === 'citizen') {
+    if (authUser?.id && (role === 'citizen' || role === 'officer' || role === 'department_head')) {
       notificationService.getUnreadCount(authUser.id)
         .then(data => setUnreadCount(data.count || 0))
         .catch(err => console.error('Failed to load unread count:', err));
     }
+  }, [authUser?.id, role]);
+
+  // Listen for notification count refresh events
+  useEffect(() => {
+    const handleNotificationRefresh = () => {
+      if (authUser?.id && (role === 'citizen' || role === 'officer' || role === 'department_head')) {
+        notificationService.getUnreadCount(authUser.id)
+          .then(data => setUnreadCount(data.count || 0))
+          .catch(err => console.error('Failed to refresh unread count:', err));
+      }
+    };
+
+    window.addEventListener('notification-refresh', handleNotificationRefresh);
+
+    return () => {
+      window.removeEventListener('notification-refresh', handleNotificationRefresh);
+    };
   }, [authUser?.id, role]);
 
   const handleLogout = useCallback(() => {

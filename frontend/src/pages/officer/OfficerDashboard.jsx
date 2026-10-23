@@ -12,7 +12,7 @@ import { StatusPriorityModal } from '@/components/admin/StatusPriorityModal';
 import { useToast } from '@/context/ToastContext';
 import { complaintService } from '@/services/complaintService';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, FileText, Zap, CheckCircle2, Clock, Eye, ArrowUp } from 'lucide-react';
+import { LayoutDashboard, FileText, Zap, CheckCircle2, Clock, Eye, ArrowUp, AlertTriangle } from 'lucide-react';
 
 export function OfficerDashboard() {
   const toast = useToast();
@@ -20,12 +20,15 @@ export function OfficerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
+    total: 0,
     assigned: 0,
     inProgress: 0,
     resolved: 0,
-    total: 0
+    highPriority: 0
   });
   const [complaints, setComplaints] = useState([]);
+  const [recentComplaints, setRecentComplaints] = useState([]);
+  const [highPriorityComplaints, setHighPriorityComplaints] = useState([]);
 
   // Modal state
   const [selectedComplaint, setSelectedComplaint] = useState(null);
@@ -35,6 +38,17 @@ export function OfficerDashboard() {
 
   useEffect(() => {
     loadData();
+
+    // Listen for dashboard refresh events
+    const handleRefresh = () => {
+      loadData();
+    };
+
+    window.addEventListener('dashboard-refresh', handleRefresh);
+
+    return () => {
+      window.removeEventListener('dashboard-refresh', handleRefresh);
+    };
   }, []);
 
   const loadData = async () => {
@@ -42,27 +56,30 @@ export function OfficerDashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch all complaints and filter for assigned ones
-      const complaintsData = await complaintService.getAllComplaints();
-      const assignedComplaints = (complaintsData.complaints || []).filter(
-        complaint => complaint.assignedTo === user?.id
-      );
+      // Fetch dashboard statistics from backend
+      const statsData = await complaintService.getOfficerDashboardStats();
+      setStats(statsData.stats || {
+        total: 0,
+        assigned: 0,
+        inProgress: 0,
+        resolved: 0,
+        highPriority: 0
+      });
 
-      setComplaints(assignedComplaints);
+      // Set recent complaints
+      setRecentComplaints(statsData.recentComplaints || []);
 
-      // Calculate stats
-      const stats = {
-        assigned: assignedComplaints.filter(c => c.status === 'assigned').length,
-        inProgress: assignedComplaints.filter(c => c.status === 'in_progress').length,
-        resolved: assignedComplaints.filter(c => c.status === 'resolved').length,
-        total: assignedComplaints.length
-      };
-      setStats(stats);
+      // Set high-priority complaints
+      setHighPriorityComplaints(statsData.highPriorityComplaints || []);
+
+      // Fetch all assigned complaints for the table
+      const complaintsData = await complaintService.getMyAssignedComplaints();
+      setComplaints(complaintsData.complaints || []);
 
     } catch (err) {
-      console.error('Failed to load complaints:', err);
-      setError(err.message || 'Failed to load complaints');
-      toast.error('Failed to load complaints');
+      console.error('Failed to load dashboard data:', err);
+      setError(err.message || 'Failed to load dashboard data');
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -261,7 +278,13 @@ export function OfficerDashboard() {
       />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <StatCard
+          label="Total"
+          value={stats.total}
+          icon={FileText}
+          color="teal"
+        />
         <StatCard
           label="Assigned"
           value={stats.assigned}
@@ -281,12 +304,49 @@ export function OfficerDashboard() {
           color="green"
         />
         <StatCard
-          label="Total"
-          value={stats.total}
-          icon={FileText}
-          color="teal"
+          label="High Priority"
+          value={stats.highPriority}
+          icon={AlertTriangle}
+          color="red"
         />
       </div>
+
+      {/* Recent Complaints */}
+      {recentComplaints.length > 0 && (
+        <div className="card-base mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-civic-text-primary">
+              Recent Assigned Complaints
+              <span className="text-sm font-normal text-civic-text-secondary ml-2">
+                (Last 5)
+              </span>
+            </h3>
+          </div>
+          <Table
+            columns={columns}
+            data={recentComplaints}
+          />
+        </div>
+      )}
+
+      {/* High Priority Complaints */}
+      {highPriorityComplaints.length > 0 && (
+        <div className="card-base mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-civic-text-primary">
+              High Priority Complaints
+              <span className="text-sm font-normal text-civic-text-secondary ml-2">
+                ({highPriorityComplaints.length})
+              </span>
+            </h3>
+            <AlertTriangle size={20} className="text-status-rejected" />
+          </div>
+          <Table
+            columns={columns}
+            data={highPriorityComplaints}
+          />
+        </div>
+      )}
 
       {/* Complaints Table */}
       <div className="card-base">

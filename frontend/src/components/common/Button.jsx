@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
+import { motion } from 'framer-motion';
 
 const variants = {
   primary:
@@ -8,6 +9,7 @@ const variants = {
     'bg-white text-civic-text-primary border border-civic-border hover:bg-civic-hover',
   teal: 'bg-civic-teal text-white hover:bg-teal-800 shadow-sm',
   danger: 'bg-status-rejected text-white hover:bg-red-700 shadow-sm',
+  success: 'bg-status-resolved text-white hover:bg-green-700 shadow-sm',
   ghost: 'text-civic-text-secondary hover:bg-civic-hover hover:text-civic-text-primary',
   outline: 'border border-civic-blue text-civic-blue hover:bg-civic-hover',
 };
@@ -35,8 +37,10 @@ export const Button = forwardRef(function Button(
   },
   ref
 ) {
+  const ButtonMotion = motion.button;
+
   return (
-    <button
+    <ButtonMotion
       ref={ref}
       type={type}
       onClick={onClick}
@@ -44,12 +48,15 @@ export const Button = forwardRef(function Button(
       className={`btn-base ${variants[variant]} ${sizes[size]} ${
         fullWidth ? 'w-full' : ''
       } ${className}`}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.15 }}
       {...props}
     >
       {loading && <LoadingSpinner size="sm" />}
       {!loading && leftIcon}
       {children}
       {!loading && rightIcon}
-    </button>
+    </ButtonMotion>
   );
 });

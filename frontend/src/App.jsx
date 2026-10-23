@@ -3,6 +3,7 @@ import { ToastProvider } from '@/context/ToastContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { LandingPage } from '@/pages/landing/LandingPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
@@ -17,9 +18,19 @@ import { ComplaintDetailsPage } from '@/pages/citizen/ComplaintDetailsPage';
 import { NotificationsPage } from '@/pages/citizen/NotificationsPage';
 import { ProfilePage } from '@/pages/citizen/ProfilePage';
 import { OfficerDashboard } from '@/pages/officer/OfficerDashboard';
+import { AssignedComplaintsPage } from '@/pages/officer/AssignedComplaintsPage';
+import { NotificationsPage as OfficerNotificationsPage } from '@/pages/officer/NotificationsPage';
+import { ProfilePage as OfficerProfilePage } from '@/pages/officer/ProfilePage';
 import { DepartmentHeadDashboard } from '@/pages/departmentHead/DepartmentHeadDashboard';
+import { NotificationsPage as DepartmentHeadNotificationsPage } from '@/pages/departmentHead/NotificationsPage';
+import { ProfilePage as DepartmentHeadProfilePage } from '@/pages/departmentHead/ProfilePage';
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { AdminComplaintManagement } from '@/pages/admin/AdminComplaintManagement';
+import { UserManagement } from '@/pages/admin/UserManagement';
+import { OfficerManagement } from '@/pages/admin/OfficerManagement';
+import { DepartmentManagement } from '@/pages/admin/DepartmentManagement';
+import { AnalyticsPage } from '@/pages/admin/AnalyticsPage';
+import { AdminProfilePage } from '@/pages/admin/AdminProfilePage';
 
 function ProtectedDashboard({ role, user }) {
   const { logout } = useAuth();
@@ -28,17 +39,29 @@ function ProtectedDashboard({ role, user }) {
   );
 }
 
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 }
+};
+
+const pageTransition = {
+  duration: 0.3,
+  ease: "easeInOut"
+};
+
 function AppRoutes() {
   const { user } = useAuth();
   const role = user?.role || 'citizen';
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/track" element={<TrackComplaintPage />} />
+    <AnimatePresence mode="wait">
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/track" element={<TrackComplaintPage />} />
 
       {/* Citizen routes */}
       <Route path="/citizen" element={
@@ -62,7 +85,9 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="dashboard" element={<OfficerDashboard />} />
-        <Route path="complaints" element={<OfficerDashboard />} />
+        <Route path="complaints" element={<AssignedComplaintsPage />} />
+        <Route path="notifications" element={<OfficerNotificationsPage />} />
+        <Route path="profile" element={<OfficerProfilePage />} />
       </Route>
 
       {/* Department Head routes */}
@@ -72,6 +97,8 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="dashboard" element={<DepartmentHeadDashboard />} />
+        <Route path="notifications" element={<DepartmentHeadNotificationsPage />} />
+        <Route path="profile" element={<DepartmentHeadProfilePage />} />
       </Route>
 
       {/* Super Admin routes */}
@@ -82,11 +109,17 @@ function AppRoutes() {
       }>
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="complaints" element={<AdminComplaintManagement />} />
+        <Route path="users" element={<UserManagement />} />
+        <Route path="officers" element={<OfficerManagement />} />
+        <Route path="departments" element={<DepartmentManagement />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="profile" element={<AdminProfilePage />} />
       </Route>
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </AnimatePresence>
   );
 }
 

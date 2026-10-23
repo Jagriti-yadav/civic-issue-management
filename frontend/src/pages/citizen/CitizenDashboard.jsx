@@ -10,6 +10,7 @@ import { PriorityBadge } from '@/components/common/PriorityBadge';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { complaintService } from '@/services/complaintService';
+import { motion } from 'framer-motion';
 import { LayoutDashboard, FileText, Clock, CheckCircle2, AlertCircle, Plus, Eye } from 'lucide-react';
 
 export function CitizenDashboard() {
@@ -104,14 +105,48 @@ export function CitizenDashboard() {
         }
       />
       
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Complaints" value={stats.total} icon={FileText} color="blue" />
-        <StatCard label="Pending" value={stats.pending} icon={Clock} color="orange" />
-        <StatCard label="In Progress" value={stats.inProgress} icon={AlertCircle} color="purple" />
-        <StatCard label="Resolved" value={stats.resolved} icon={CheckCircle2} color="green" />
-      </div>
+      <motion.div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <StatCard label="Total Complaints" value={stats.total} icon={FileText} color="blue" />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <StatCard label="Pending" value={stats.pending} icon={Clock} color="orange" />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <StatCard label="In Progress" value={stats.inProgress} icon={AlertCircle} color="purple" />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+        >
+          <StatCard label="Resolved" value={stats.resolved} icon={CheckCircle2} color="green" />
+        </motion.div>
+      </motion.div>
 
-      <div className="card-base">
+      <motion.div
+        className="card-base"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.5 }}
+      >
         {complaints.length === 0 ? (
           <EmptyState
             icon={FileText}
@@ -145,7 +180,7 @@ export function CitizenDashboard() {
             }))}
           />
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

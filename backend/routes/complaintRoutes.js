@@ -10,7 +10,9 @@ import {
   assignComplaint,
   addRemark,
   getComplaintStats,
-  getUserComplaints
+  getUserComplaints,
+  getMyAssignedComplaints,
+  getOfficerDashboardStats
 } from '../controllers/complaintController.js';
 
 const router = express.Router();
@@ -20,6 +22,12 @@ router.post('/', auth, authorize('citizen', 'officer', 'department_head', 'super
 
 // Get all complaints with optional filters (officer, department_head, super_admin)
 router.get('/', auth, authorize('officer', 'department_head', 'super_admin'), getAllComplaints);
+
+// Get complaints assigned to the authenticated officer (officer only)
+router.get('/my', auth, authorize('officer'), getMyAssignedComplaints);
+
+// Get officer dashboard statistics (officer only)
+router.get('/my/stats', auth, authorize('officer'), getOfficerDashboardStats);
 
 // Get complaints for a specific user (authenticated users)
 router.get('/user/:userId', auth, getUserComplaints);

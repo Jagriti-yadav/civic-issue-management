@@ -1,25 +1,553 @@
 import User from '../models/User.js';
+import Complaint from '../models/Complaint.js';
+import Department from '../models/Department.js';
+import mongoose from 'mongoose';
 
-// Get all departments
-export const getDepartments = async (req, res) => {
+// Create officer account (super_admin only)
+export const createOfficer = async (req, res) => {
   try {
-    // Get unique departments from active officers
-    const departments = await User.distinct('department', {
-      role: 'officer',
-      isActive: true,
-      department: { $ne: null, $ne: '' }
-    });
+    const { name, email, password, department, designation, phone } = req.body;
 
-    // Also include departments from complaints to ensure all departments are covered
-    const Complaint = (await import('../models/Complaint.js')).default;
-    const complaintDepartments = await Complaint.distinct('department');
-    
-    // Merge and deduplicate
-    const allDepartments = [...new Set([...departments, ...complaintDepartments])].filter(Boolean).sort();
+    // Validate required fields
+    if (!name || !email || !password || !department) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, password, and department are required'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email'
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
+
+    // Validate department exists in Department model
+    const dept = await Department.findOne({ name: department });
+    if (!dept) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid department. Please select a valid department.'
+      });
+    }
+
+    // Check if department is active
+    if (!dept.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Selected department is inactive. Please select an active department.'
+      });
+    }
+
+    // Create officer
+    const officerData = {
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password,
+      role: 'officer',
+      department: department.trim(),
+      designation: designation ? designation.trim() : undefined,
+      phone: phone ? phone.trim() : undefined
+    };
+
+    const officer = await User.create(officerData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Officer created successfully',
+      officer: {
+        id: officer._id,
+        name: officer.name,
+        email: officer.email,
+        role: officer.role,
+        department: officer.department,
+        designation: officer.designation,
+        phone: officer.phone,
+        isActive: officer.isActive,
+        createdAt: officer.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Create officer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create officer',
+      error: error.message
+    });
+  }
+};
+
+// Get all officers with filters (super_admin only)
+export const getOfficers = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      status = '',
+      department = '',
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build query - only officers
+    const query = { role: 'officer' };
+
+    // Search by name or email
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Filter by status
+    if (status) {
+      query.isActive = status === 'active';
+    }
+
+    // Filter by department
+    if (department) {
+      query.department = department;
+    }
+
+    // Sort options
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const [officers, total] = await Promise.all([
+      User.find(query)
+        .select('-password')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(query)
+    ]);
 
     res.status(200).json({
       success: true,
-      departments: allDepartments
+      officers,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Get officers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch officers',
+      error: error.message
+    });
+  }
+};
+
+// Update officer details (super_admin only)
+export const updateOfficer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, department, designation, phone } = req.body;
+
+    const officer = await User.findById(id);
+    if (!officer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Officer not found'
+      });
+    }
+
+    // Verify user is an officer
+    if (officer.role !== 'officer') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not an officer'
+      });
+    }
+
+    // Validate email if being changed
+    if (email && email !== officer.email) {
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
+        });
+      }
+      officer.email = email.toLowerCase().trim();
+    }
+
+    // Validate department if being changed
+    if (department && department !== officer.department) {
+      const dept = await Department.findOne({ name: department });
+      if (!dept) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid department'
+        });
+      }
+
+      // Check if department is active
+      if (!dept.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected department is inactive'
+        });
+      }
+
+      officer.department = department.trim();
+    }
+
+    if (name) {
+      officer.name = name.trim();
+    }
+
+    if (designation !== undefined) {
+      officer.designation = designation ? designation.trim() : undefined;
+    }
+
+    if (phone !== undefined) {
+      officer.phone = phone ? phone.trim() : undefined;
+    }
+
+    await officer.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Officer updated successfully',
+      officer: {
+        id: officer._id,
+        name: officer.name,
+        email: officer.email,
+        role: officer.role,
+        department: officer.department,
+        designation: officer.designation,
+        phone: officer.phone,
+        isActive: officer.isActive,
+        createdAt: officer.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Update officer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update officer',
+      error: error.message
+    });
+  }
+};
+
+// Get complaints assigned to an officer (super_admin only)
+export const getOfficerComplaints = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      page = 1,
+      limit = 10,
+      status = '',
+      priority = ''
+    } = req.query;
+
+    // Verify officer exists
+    const officer = await User.findById(id).select('-password');
+    if (!officer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Officer not found'
+      });
+    }
+
+    // Verify user is an officer
+    if (officer.role !== 'officer') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not an officer'
+      });
+    }
+
+    // Build query
+    const query = { assignedTo: id };
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (priority) {
+      query.priority = priority;
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const [complaints, total] = await Promise.all([
+      Complaint.find(query)
+        .populate('submittedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Complaint.countDocuments(query)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      officer: {
+        id: officer._id,
+        name: officer.name,
+        email: officer.email,
+        department: officer.department
+      },
+      complaints,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Get officer complaints error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch officer complaints',
+      error: error.message
+    });
+  }
+};
+
+// Get all users (super_admin only)
+export const getAllUsers = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      status = '',
+      role = '',
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build query
+    const query = {};
+
+    // Search by name or email
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Filter by status
+    if (status) {
+      query.isActive = status === 'active';
+    }
+
+    // Filter by role
+    if (role) {
+      query.role = role;
+    }
+
+    // Sort options
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('-password')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(query)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      users,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users',
+      error: error.message
+    });
+  }
+};
+
+// Update user status (activate/deactivate) - super_admin only
+export const updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive must be a boolean value'
+      });
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Prevent super_admin from deactivating themselves
+    if (req.user.id === id.toString() && !isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot deactivate your own account'
+      });
+    }
+
+    user.isActive = isActive;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update user status',
+      error: error.message
+    });
+  }
+};
+
+// Get user's complaints
+export const getUserComplaints = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      page = 1,
+      limit = 10,
+      status = '',
+      priority = ''
+    } = req.query;
+
+    // Verify user exists
+    const user = await User.findById(id).select('-password');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Build query
+    const query = { submittedBy: id };
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (priority) {
+      query.priority = priority;
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const [complaints, total] = await Promise.all([
+      Complaint.find(query)
+        .populate('assignedTo', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Complaint.countDocuments(query)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      complaints,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Get user complaints error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user complaints',
+      error: error.message
+    });
+  }
+};
+
+// Get all departments (for dropdowns - returns only active departments)
+export const getDepartments = async (req, res) => {
+  try {
+    // Get active departments from Department model
+    const departments = await Department.find({ isActive: true })
+      .select('name')
+      .sort({ name: 1 });
+
+    const departmentNames = departments.map(dept => dept.name);
+
+    res.status(200).json({
+      success: true,
+      departments: departmentNames
     });
   } catch (error) {
     console.error('Get departments error:', error);
@@ -68,6 +596,22 @@ export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    // Security: Users can only view their own profile unless they are super_admin
+    if (req.user.role !== 'super_admin' && req.user.id !== id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view your own profile'
+      });
+    }
+
     const user = await User.findById(id).select('-password');
 
     if (!user) {
@@ -95,13 +639,48 @@ export const getUserById = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email } = req.body;
+    const { name, email, phone, role, department, designation, isActive } = req.body;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
 
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+      });
+    }
+
+    // Security: Users can only update their own profile unless they are super_admin
+    if (req.user.role !== 'super_admin' && req.user.id !== id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update your own profile'
+      });
+    }
+
+    // Security: Non-super_admin users cannot modify sensitive fields
+    if (req.user.role !== 'super_admin') {
+      // Prevent modifying role, department, designation, or isActive
+      if (role || department || designation !== undefined || isActive !== undefined) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not authorized to modify these fields'
+        });
+      }
+    }
+
+    // Security: Super Admin cannot change their own role (prevent privilege escalation)
+    if (role && req.user.role === 'super_admin' && req.user.id === id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot change your own role'
       });
     }
 
@@ -121,6 +700,18 @@ export const updateUser = async (req, res) => {
       user.name = name.trim();
     }
 
+    if (phone !== undefined) {
+      user.phone = phone ? phone.trim() : undefined;
+    }
+
+    // Only super_admin can modify these fields
+    if (req.user.role === 'super_admin') {
+      if (role) user.role = role;
+      if (department) user.department = department;
+      if (designation !== undefined) user.designation = designation ? designation.trim() : undefined;
+      if (isActive !== undefined) user.isActive = isActive;
+    }
+
     await user.save();
 
     res.status(200).json({
@@ -132,6 +723,8 @@ export const updateUser = async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
+        designation: user.designation,
+        phone: user.phone,
         isActive: user.isActive,
         createdAt: user.createdAt
       }
@@ -152,6 +745,14 @@ export const changePassword = async (req, res) => {
     const { id } = req.params;
     const { currentPassword, newPassword } = req.body;
 
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
@@ -164,6 +765,14 @@ export const changePassword = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'User not found'
+      });
+    }
+
+    // Security: Users can only change their own password unless they are super_admin
+    if (req.user.role !== 'super_admin' && req.user.id !== id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only change your own password'
       });
     }
 

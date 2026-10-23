@@ -1,4 +1,5 @@
 import Notification from '../models/Notification.js';
+import mongoose from 'mongoose';
 
 // Create a new notification
 export const createNotification = async (req, res) => {
@@ -42,6 +43,22 @@ export const getUserNotifications = async (req, res) => {
     const { userId } = req.params;
     const { unreadOnly } = req.query;
 
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    // Security: Ensure user can only access their own notifications
+    if (req.user?.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view your own notifications'
+      });
+    }
+
     const filter = { recipient: userId };
     if (unreadOnly === 'true') {
       filter.isRead = false;
@@ -72,6 +89,22 @@ export const getUnreadCount = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    // Security: Ensure user can only access their own notification count
+    if (req.user?.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view your own notification count'
+      });
+    }
+
     const count = await Notification.countDocuments({
       recipient: userId,
       isRead: false
@@ -96,11 +129,27 @@ export const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid notification ID'
+      });
+    }
+
     const notification = await Notification.findById(id);
     if (!notification) {
       return res.status(404).json({
         success: false,
         message: 'Notification not found'
+      });
+    }
+
+    // Security: Ensure user can only mark their own notifications as read
+    if (req.user?.id !== notification.recipient.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only mark your own notifications as read'
       });
     }
 
@@ -127,6 +176,22 @@ export const markAllAsRead = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    // Security: Ensure user can only mark their own notifications as read
+    if (req.user?.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only mark your own notifications as read'
+      });
+    }
+
     const result = await Notification.updateMany(
       { recipient: userId, isRead: false },
       { isRead: true }
@@ -152,13 +217,31 @@ export const deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const notification = await Notification.findByIdAndDelete(id);
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid notification ID'
+      });
+    }
+
+    const notification = await Notification.findById(id);
     if (!notification) {
       return res.status(404).json({
         success: false,
         message: 'Notification not found'
       });
     }
+
+    // Security: Ensure user can only delete their own notifications
+    if (req.user?.id !== notification.recipient.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only delete your own notifications'
+      });
+    }
+
+    await Notification.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,

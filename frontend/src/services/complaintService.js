@@ -1,6 +1,6 @@
 import { authService } from './authService';
 
-const API_BASE_URL = ''; // Use relative paths to leverage Vite proxy
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // Use relative paths in development, configured URL in production
 
 export const complaintService = {
   async createComplaint(complaintData) {
@@ -41,7 +41,7 @@ export const complaintService = {
   async getUserComplaints(userId, filters = {}) {
     const queryParams = new URLSearchParams(filters).toString();
     const url = `${API_BASE_URL}/api/complaints/user/${userId}${queryParams ? `?${queryParams}` : ''}`;
-    
+
     const response = await fetch(url, {
       headers: authService.getAuthHeaders(),
     });
@@ -49,6 +49,35 @@ export const complaintService = {
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to fetch user complaints');
+    }
+
+    return data;
+  },
+
+  async getMyAssignedComplaints(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    const url = `${API_BASE_URL}/api/complaints/my${queryParams ? `?${queryParams}` : ''}`;
+
+    const response = await fetch(url, {
+      headers: authService.getAuthHeaders(),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch assigned complaints');
+    }
+
+    return data;
+  },
+
+  async getOfficerDashboardStats() {
+    const response = await fetch(`${API_BASE_URL}/api/complaints/my/stats`, {
+      headers: authService.getAuthHeaders(),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch dashboard statistics');
     }
 
     return data;
@@ -78,14 +107,18 @@ export const complaintService = {
     return data;
   },
 
-  async updateComplaintStatus(id, status, note) {
+  async updateComplaintStatus(id, status, note, resolutionText, resolutionImages) {
+    const body = { status, note };
+    if (resolutionText) body.resolutionText = resolutionText;
+    if (resolutionImages && Array.isArray(resolutionImages)) body.resolutionImages = resolutionImages;
+
     const response = await fetch(`${API_BASE_URL}/api/complaints/${id}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         ...authService.getAuthHeaders(),
       },
-      body: JSON.stringify({ status, note }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();

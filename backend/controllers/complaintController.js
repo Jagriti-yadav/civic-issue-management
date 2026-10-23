@@ -1,6 +1,7 @@
 import Complaint from '../models/Complaint.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import mongoose from 'mongoose';
 
 // Create a new complaint
 export const createComplaint = async (req, res) => {
@@ -116,10 +117,15 @@ export const getAllComplaints = async (req, res) => {
     const { status, category, priority, department } = req.query;
     const filter = {};
 
+    // Security: Department heads can only view complaints from their department
+    if (req.user.role === 'department_head') {
+      filter.department = req.user.department || department;
+    }
+
     if (status) filter.status = status;
     if (category) filter.category = category;
     if (priority) filter.priority = priority;
-    if (department) filter.department = department;
+    if (department && req.user.role !== 'department_head') filter.department = department;
 
     const complaints = await Complaint.find(filter)
       .populate('submittedBy', 'name email')
@@ -145,6 +151,15 @@ export const getAllComplaints = async (req, res) => {
 export const getComplaintById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID'
+      });
+    }
+
     const complaint = await Complaint.findById(id)
       .populate('submittedBy', 'name email')
       .populate('assignedTo', 'name email')
@@ -155,6 +170,22 @@ export const getComplaintById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Complaint not found'
+      });
+    }
+
+    // Security: Citizens can only view their own complaints
+    if (req.user.role === 'citizen' && complaint.submittedBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view your own complaints'
+      });
+    }
+
+    // Security: Officers can only view complaints assigned to them
+    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view complaints assigned to you'
       });
     }
 
@@ -216,8 +247,16 @@ const VALID_TRANSITIONS = {
 export const updateComplaintStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, note } = req.body;
+    const { status, note, resolutionText, resolutionImages } = req.body;
     const userId = req.user?.id;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID'
+      });
+    }
 
     // Validate inputs
     if (!status) {
@@ -241,6 +280,14 @@ export const updateComplaintStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Complaint not found'
+      });
+    }
+
+    // Security: Officers can only update complaints assigned to them
+    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only update complaints assigned to you'
       });
     }
 
@@ -275,6 +322,12 @@ export const updateComplaintStatus = async (req, res) => {
 
     if (status === 'resolved') {
       complaint.resolutionEvidence.resolvedAt = new Date();
+      if (resolutionText) {
+        complaint.resolutionEvidence.text = resolutionText;
+      }
+      if (resolutionImages && Array.isArray(resolutionImages)) {
+        complaint.resolutionEvidence.images = resolutionImages;
+      }
     }
 
     await complaint.save();
@@ -310,7 +363,8 @@ export const updateComplaintStatus = async (req, res) => {
         complaintId: complaint.complaintId,
         status: complaint.status,
         previousStatus,
-        updatedAt: complaint.updatedAt
+        updatedAt: complaint.updatedAt,
+        resolutionEvidence: complaint.resolutionEvidence
       }
     });
   } catch (error) {
@@ -329,6 +383,14 @@ export const updateComplaintPriority = async (req, res) => {
     const { id } = req.params;
     const { priority, note } = req.body;
     const userId = req.user?.id;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID'
+      });
+    }
 
     // Validate inputs
     if (!priority) {
@@ -355,6 +417,14 @@ export const updateComplaintPriority = async (req, res) => {
       });
     }
 
+    // Security: Department heads can only update priority for complaints in their department
+    if (req.user.role === 'department_head' && complaint.department !== req.user.department) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only update priority for complaints in your department'
+      });
+    }
+
     // Store previous priority
     const previousPriority = complaint.priority;
     
@@ -369,6 +439,22 @@ export const updateComplaintPriority = async (req, res) => {
     });
 
     await complaint.save();
+
+    // Create notification for the assigned officer if complaint is assigned
+    try {
+      if (complaint.assignedTo) {
+        await Notification.create({
+          recipient: complaint.assignedTo,
+          title: 'Complaint Priority Changed',
+          message: `Priority of complaint ${complaint.complaintId} has been changed from ${previousPriority} to ${priority}.`,
+          type: 'complaint_priority_changed',
+          relatedComplaint: complaint._id
+        });
+      }
+    } catch (notificationError) {
+      console.error('Failed to create notification:', notificationError);
+      // Don't fail the priority update if notification creation fails
+    }
 
     res.status(200).json({
       success: true,
@@ -397,6 +483,21 @@ export const assignComplaint = async (req, res) => {
     const { id } = req.params;
     const { officerId } = req.body;
 
+    // Validate MongoDB ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(officerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid officer ID'
+      });
+    }
+
     // Validate inputs
     if (!officerId) {
       return res.status(400).json({
@@ -410,6 +511,14 @@ export const assignComplaint = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Complaint not found'
+      });
+    }
+
+    // Security: Department heads can only assign complaints in their department
+    if (req.user.role === 'department_head' && complaint.department !== req.user.department) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only assign complaints in your department'
       });
     }
 
@@ -450,6 +559,65 @@ export const assignComplaint = async (req, res) => {
     // Check if already assigned
     if (complaint.assignedTo) {
       const existingOfficer = await User.findById(complaint.assignedTo);
+
+      // If reassigning to a different officer
+      if (complaint.assignedTo.toString() !== officerId) {
+        // Reassign the complaint
+        const previousOfficerId = complaint.assignedTo;
+        complaint.assignedTo = officerId;
+        complaint.status = 'assigned';
+        complaint.statusHistory.push({
+          status: 'assigned',
+          changedBy: req.user?.id || officerId,
+          note: `Reassigned from ${existingOfficer?.name || 'previous officer'} to ${officer.name} (${officer.department})`
+        });
+
+        await complaint.save();
+
+        // Create notification for the new officer
+        try {
+          await Notification.create({
+            recipient: officerId,
+            title: 'Complaint Reassigned',
+            message: `Complaint ${complaint.complaintId} has been reassigned to you. ${complaint.title}`,
+            type: 'complaint_reassigned',
+            relatedComplaint: complaint._id
+          });
+        } catch (notificationError) {
+          console.error('Failed to create notification for new officer:', notificationError);
+        }
+
+        // Create notification for the previous officer
+        try {
+          await Notification.create({
+            recipient: previousOfficerId,
+            title: 'Complaint Reassigned',
+            message: `Complaint ${complaint.complaintId} has been reassigned from you to ${officer.name}.`,
+            type: 'complaint_reassigned',
+            relatedComplaint: complaint._id
+          });
+        } catch (notificationError) {
+          console.error('Failed to create notification for previous officer:', notificationError);
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Complaint reassigned successfully',
+          complaint: {
+            id: complaint._id,
+            complaintId: complaint.complaintId,
+            title: complaint.title,
+            status: complaint.status,
+            assignedTo: {
+              id: officer._id,
+              name: officer.name,
+              email: officer.email,
+              department: officer.department
+            }
+          }
+        });
+      }
+
       return res.status(400).json({
         success: false,
         message: `Complaint is already assigned to ${existingOfficer?.name || 'an officer'}`
@@ -513,13 +681,37 @@ export const addRemark = async (req, res) => {
   try {
     const { id } = req.params;
     const { text } = req.body;
-    const userId = req.user?.id || '67a000000000000000000001'; // Mock user ID
+    const userId = req.user?.id;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID'
+      });
+    }
 
     const complaint = await Complaint.findById(id);
     if (!complaint) {
       return res.status(404).json({
         success: false,
         message: 'Complaint not found'
+      });
+    }
+
+    // Security: Citizens can only add remarks to their own complaints
+    if (req.user.role === 'citizen' && complaint.submittedBy.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only add remarks to your own complaints'
+      });
+    }
+
+    // Security: Officers can only add remarks to complaints assigned to them
+    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only add remarks to complaints assigned to you'
       });
     }
 
@@ -530,6 +722,23 @@ export const addRemark = async (req, res) => {
     });
 
     await complaint.save();
+
+    // Create notification for the assigned officer if remark is added by admin
+    try {
+      const user = await User.findById(userId);
+      if (user?.role === 'super_admin' && complaint.assignedTo) {
+        await Notification.create({
+          recipient: complaint.assignedTo,
+          title: 'Complaint Update',
+          message: `Administrator has added an update to complaint ${complaint.complaintId}.`,
+          type: 'complaint_update',
+          relatedComplaint: complaint._id
+        });
+      }
+    } catch (notificationError) {
+      console.error('Failed to create notification:', notificationError);
+      // Don't fail the remark addition if notification creation fails
+    }
 
     res.status(200).json({
       success: true,
@@ -551,6 +760,15 @@ export const getUserComplaints = async (req, res) => {
   try {
     const { userId } = req.params;
     const { status, category, priority, department } = req.query;
+
+    // Security: Users can only view their own complaints unless they are super_admin
+    if (req.user.role !== 'super_admin' && req.user.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You can only view your own complaints'
+      });
+    }
+
     const filter = { submittedBy: userId };
 
     if (status) filter.status = status;
@@ -633,6 +851,111 @@ export const getComplaintStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch statistics',
+      error: error.message
+    });
+  }
+};
+
+// Get complaints assigned to the authenticated officer
+export const getMyAssignedComplaints = async (req, res) => {
+  try {
+    const officerId = req.user.id; // Get officer ID from JWT token
+    const { status, category, priority } = req.query;
+
+    // Build filter for assigned complaints
+    const filter = { assignedTo: officerId };
+
+    // Add optional filters
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    if (priority) filter.priority = priority;
+
+    const complaints = await Complaint.find(filter)
+      .populate('submittedBy', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: complaints.length,
+      complaints
+    });
+  } catch (error) {
+    console.error('Get my assigned complaints error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch assigned complaints',
+      error: error.message
+    });
+  }
+};
+
+// Get officer dashboard statistics
+export const getOfficerDashboardStats = async (req, res) => {
+  try {
+    const officerId = req.user.id; // Get officer ID from JWT token
+
+    // Convert to ObjectId for proper MongoDB comparison
+    const officerObjectId = new mongoose.Types.ObjectId(officerId);
+
+    // Calculate statistics using aggregation
+    const stats = await Complaint.aggregate([
+      {
+        $match: { assignedTo: officerObjectId }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          assigned: { $sum: { $cond: [{ $eq: ['$status', 'assigned'] }, 1, 0] } },
+          inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
+          resolved: { $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] } },
+          highPriority: { $sum: { $cond: [{ $in: ['$priority', ['high', 'critical']] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    const result = stats[0] || {
+      total: 0,
+      assigned: 0,
+      inProgress: 0,
+      resolved: 0,
+      highPriority: 0
+    };
+
+    // Get recent assigned complaints (last 5)
+    const recentComplaints = await Complaint.find({ assignedTo: officerId })
+      .populate('submittedBy', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    // Get high-priority complaints
+    const highPriorityComplaints = await Complaint.find({
+      assignedTo: officerId,
+      priority: { $in: ['high', 'critical'] }
+    })
+      .populate('submittedBy', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        total: result.total,
+        assigned: result.assigned,
+        inProgress: result.inProgress,
+        resolved: result.resolved,
+        highPriority: result.highPriority
+      },
+      recentComplaints,
+      highPriorityComplaints
+    });
+  } catch (error) {
+    console.error('Get officer dashboard stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard statistics',
       error: error.message
     });
   }

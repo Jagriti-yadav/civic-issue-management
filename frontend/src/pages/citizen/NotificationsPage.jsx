@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { notificationService } from '@/services/notificationService';
-import { Bell, Check, CheckCheck, Trash2, Clock, FileText } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, Clock, FileText, ArrowRight } from 'lucide-react';
 
 export function NotificationsPage() {
   const { user } = useAuth();
@@ -50,11 +50,13 @@ export function NotificationsPage() {
   const handleMarkAsRead = async (notificationId) => {
     try {
       await notificationService.markAsRead(notificationId);
-      setNotifications(notifications.map(n => 
+      setNotifications(notifications.map(n =>
         n._id === notificationId ? { ...n, isRead: true } : n
       ));
       setUnreadCount(Math.max(0, unreadCount - 1));
       toast.success('Notification marked as read');
+      // Trigger sidebar count refresh
+      window.dispatchEvent(new CustomEvent('notification-refresh'));
     } catch (error) {
       console.error('Failed to mark as read:', error);
       toast.error('Failed to mark as read');
@@ -67,6 +69,8 @@ export function NotificationsPage() {
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
       toast.success('All notifications marked as read');
+      // Trigger sidebar count refresh
+      window.dispatchEvent(new CustomEvent('notification-refresh'));
     } catch (error) {
       console.error('Failed to mark all as read:', error);
       toast.error('Failed to mark all as read');
@@ -76,11 +80,14 @@ export function NotificationsPage() {
   const handleDelete = async (notificationId) => {
     try {
       await notificationService.deleteNotification(notificationId);
+      const wasUnread = !notifications.find(n => n._id === notificationId)?.isRead;
       setNotifications(notifications.filter(n => n._id !== notificationId));
-      if (!notifications.find(n => n._id === notificationId)?.isRead) {
+      if (wasUnread) {
         setUnreadCount(Math.max(0, unreadCount - 1));
       }
       toast.success('Notification deleted');
+      // Trigger sidebar count refresh
+      window.dispatchEvent(new CustomEvent('notification-refresh'));
     } catch (error) {
       console.error('Failed to delete notification:', error);
       toast.error('Failed to delete notification');
@@ -119,12 +126,18 @@ export function NotificationsPage() {
         return <FileText size={20} className="text-green-500" />;
       case 'complaint_assigned':
         return <FileText size={20} className="text-blue-500" />;
+      case 'complaint_reassigned':
+        return <ArrowRight size={20} className="text-purple-500" />;
       case 'complaint_in_progress':
         return <Clock size={20} className="text-orange-500" />;
       case 'complaint_resolved':
         return <Check size={20} className="text-green-500" />;
       case 'complaint_rejected':
         return <FileText size={20} className="text-red-500" />;
+      case 'complaint_priority_changed':
+        return <FileText size={20} className="text-yellow-500" />;
+      case 'complaint_update':
+        return <FileText size={20} className="text-civic-blue" />;
       default:
         return <Bell size={20} className="text-civic-blue" />;
     }

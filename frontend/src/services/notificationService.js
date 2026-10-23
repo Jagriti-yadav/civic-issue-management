@@ -1,6 +1,6 @@
 import { authService } from './authService';
 
-const API_BASE_URL = ''; // Use relative paths to leverage Vite proxy
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // Use relative paths in development, configured URL in production
 
 export const notificationService = {
   async getUserNotifications(userId, options = {}) {

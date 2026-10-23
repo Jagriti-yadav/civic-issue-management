@@ -101,7 +101,16 @@ const complaintSchema = new mongoose.Schema({
     confidence: Number
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { complaintId: 1 },
+    { submittedBy: 1, createdAt: -1 },
+    { assignedTo: 1, status: 1 },
+    { department: 1, status: 1 },
+    { status: 1, createdAt: -1 },
+    { category: 1 },
+    { priority: 1 }
+  ]
 });
 
 // Generate complaint ID before saving

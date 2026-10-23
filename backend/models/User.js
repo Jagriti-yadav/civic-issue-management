@@ -31,12 +31,32 @@ role: {
     type: String,
     trim: true
   },
+  designation: {
+    type: String,
+    trim: true
+  },
+  phone: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Phone is optional
+        return /^\+?[1-9]\d{1,14}$/.test(v.replace(/[\s\-\(\)]/g, ''));
+      },
+      message: 'Please provide a valid phone number with country code'
+    }
+  },
   isActive: {
     type: Boolean,
     default: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { email: 1 },
+    { role: 1, isActive: 1 },
+    { department: 1, role: 1 }
+  ]
 });
 
 // Hash password before saving
@@ -56,6 +76,13 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Method to return user without password
 userSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password;
+  return user;
+};
+
+// Method to return user without password and sensitive data for admin view
+userSchema.methods.toPublicJSON = function() {
   const user = this.toObject();
   delete user.password;
   return user;

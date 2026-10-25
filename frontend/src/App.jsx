@@ -24,6 +24,9 @@ import { ProfilePage as OfficerProfilePage } from '@/pages/officer/ProfilePage';
 import { DepartmentHeadDashboard } from '@/pages/departmentHead/DepartmentHeadDashboard';
 import { NotificationsPage as DepartmentHeadNotificationsPage } from '@/pages/departmentHead/NotificationsPage';
 import { ProfilePage as DepartmentHeadProfilePage } from '@/pages/departmentHead/ProfilePage';
+import { DepartmentComplaintsPage } from '@/pages/departmentHead/DepartmentComplaintsPage';
+import { DepartmentOfficersPage } from '@/pages/departmentHead/DepartmentOfficersPage';
+import { FeedbackPage as DepartmentHeadFeedbackPage } from '@/pages/departmentHead/FeedbackPage';
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { AdminComplaintManagement } from '@/pages/admin/AdminComplaintManagement';
 import { UserManagement } from '@/pages/admin/UserManagement';
@@ -97,7 +100,10 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="dashboard" element={<DepartmentHeadDashboard />} />
+        <Route path="complaints" element={<DepartmentComplaintsPage />} />
+        <Route path="officers" element={<DepartmentOfficersPage />} />
         <Route path="notifications" element={<DepartmentHeadNotificationsPage />} />
+        <Route path="feedback" element={<DepartmentHeadFeedbackPage />} />
         <Route path="profile" element={<DepartmentHeadProfilePage />} />
       </Route>
 

@@ -143,6 +143,33 @@ export const userService = {
     return data;
   },
 
+  async getDepartmentOfficersWithWorkload(params = {}) {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await fetch(`${API_BASE_URL}/api/users/officers/department-head/workload?${queryParams}`, {
+      headers: authService.getAuthHeaders(),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch officers');
+    }
+
+    return data;
+  },
+
+  async getOfficerDetailsForDepartmentHead(officerId) {
+    const response = await fetch(`${API_BASE_URL}/api/users/officers/department-head/${officerId}`, {
+      headers: authService.getAuthHeaders(),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch officer details');
+    }
+
+    return data;
+  },
+
   async getUserById(userId) {
     const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
       headers: authService.getAuthHeaders(),

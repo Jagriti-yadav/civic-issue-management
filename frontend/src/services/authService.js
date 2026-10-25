@@ -1,13 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // Use relative paths in development, configured URL in production
 
 export const authService = {
-  async login(email, password) {
+  async login(email, password, selectedRole = '') {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, selectedRole }),
     });
 
     const data = await response.json();

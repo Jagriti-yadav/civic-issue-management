@@ -16,10 +16,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email, password, selectedRole = '') => {
     setLoading(true);
     try {
-      const data = await authService.login(email, password);
+      const data = await authService.login(email, password, selectedRole);
       setUser(data.user);
       return data;
     } catch (error) {

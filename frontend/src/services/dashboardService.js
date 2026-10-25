@@ -53,5 +53,18 @@ export const dashboardService = {
     }
 
     return data;
+  },
+
+  async getDepartmentHeadDashboardStats() {
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/department-head/stats`, {
+      headers: authService.getAuthHeaders(),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch dashboard statistics');
+    }
+
+    return data;
   }
 };

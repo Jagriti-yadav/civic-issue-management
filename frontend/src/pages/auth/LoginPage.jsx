@@ -1,20 +1,32 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, UserCog, Building2, Users } from 'lucide-react';
+
+const ROLE_DISPLAY = {
+  citizen: { label: 'Citizen', icon: Users, color: 'blue', bgClass: 'bg-blue-50', borderClass: 'border-blue-500', textClass: 'text-blue-600' },
+  officer: { label: 'Officer', icon: Shield, color: 'teal', bgClass: 'bg-teal-50', borderClass: 'border-teal-500', textClass: 'text-teal-600' },
+  department_head: { label: 'Department Head', icon: UserCog, color: 'purple', bgClass: 'bg-purple-50', borderClass: 'border-purple-500', textClass: 'text-purple-600' },
+  super_admin: { label: 'Super Admin', icon: Building2, color: 'orange', bgClass: 'bg-orange-50', borderClass: 'border-orange-500', textClass: 'text-orange-600' }
+};
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
+  
+  // Get selected role from URL query parameter
+  const selectedRole = searchParams.get('role') || '';
+  const roleDisplay = ROLE_DISPLAY[selectedRole];
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -38,7 +50,7 @@ export function LoginPage() {
 
     setLoading(true);
     try {
-      const data = await login(form.email, form.password);
+      const data = await login(form.email, form.password, selectedRole);
       toast.success('Login successful!');
 
       // Redirect based on user role from the login response
@@ -63,9 +75,27 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to your Smart Civic account to continue"
+      title={roleDisplay ? `${roleDisplay.label} Login` : 'Welcome back'}
+      subtitle={roleDisplay 
+        ? `Sign in as a ${roleDisplay.label} to access your dashboard`
+        : 'Sign in to your Smart Civic account to continue'
+      }
     >
+      {roleDisplay && (
+        <div className={`mb-6 p-4 rounded-lg border-l-4 ${roleDisplay.bgClass} ${roleDisplay.borderClass}`}>
+          <div className="flex items-center gap-3">
+            <roleDisplay.icon size={20} className={roleDisplay.textClass} />
+            <div>
+              <p className="font-medium text-civic-text-primary">
+                {roleDisplay.label} Login
+              </p>
+              <p className="text-sm text-civic-text-secondary">
+                You are signing in as a {roleDisplay.label}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-5">
         <Input
           label="Email address"

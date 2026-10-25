@@ -6,12 +6,12 @@ import { notificationService } from '@/services/notificationService';
 import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, FileText, Search, Bell, User, Users,
-  Shield, Building2, BarChart3, LogOut, Menu, X, Plus,
+  Shield, Building2, BarChart3, LogOut, Menu, X, Plus, Star,
 } from 'lucide-react';
 
 const ICON_MAP = {
   LayoutDashboard, FileText, Search, Bell, User, Users,
-  Shield, Building2, BarChart3, Plus, LogOut, Menu, X,
+  Shield, Building2, BarChart3, Plus, LogOut, Menu, X, Star,
 };
 
 const ROLE_CONFIG = {
@@ -48,8 +48,9 @@ const ROLE_CONFIG = {
     basePath: '/department-head',
     nav: [
       { to: '/department-head/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-      { to: '/department-head/complaints', label: 'Department Complaints', icon: 'FileText' },
+      { to: '/department-head/complaints', label: 'Complaints', icon: 'FileText' },
       { to: '/department-head/officers', label: 'Officers', icon: 'Users' },
+      { to: '/department-head/feedback', label: 'Feedback', icon: 'Star' },
       { to: '/department-head/notifications', label: 'Notifications', icon: 'Bell' },
       { to: '/department-head/profile', label: 'Profile', icon: 'User' },
     ],

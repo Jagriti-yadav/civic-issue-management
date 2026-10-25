@@ -10,7 +10,7 @@ import { PriorityBadge } from '@/components/common/PriorityBadge';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { complaintService } from '@/services/complaintService';
-import { ArrowLeft, FileText, MapPin, Calendar, User, Clock, Building2, AlertCircle, Phone } from 'lucide-react';
+import { ArrowLeft, FileText, MapPin, Calendar, User, Clock, Building2, AlertCircle, Phone, Star, CheckCircle2 } from 'lucide-react';
 
 export function ComplaintDetailsPage() {
   const { id } = useParams();
@@ -20,6 +20,10 @@ export function ComplaintDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [complaint, setComplaint] = useState(null);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     loadComplaint();
@@ -30,13 +34,7 @@ export function ComplaintDetailsPage() {
       setLoading(true);
       setError(null);
       const data = await complaintService.getComplaintById(id);
-      
-      // Verify ownership
-      if (data.complaint.submittedBy._id !== user?.id) {
-        setError('You do not have permission to view this complaint');
-        return;
-      }
-      
+
       setComplaint(data.complaint);
     } catch (error) {
       console.error('Failed to load complaint:', error);
@@ -44,6 +42,46 @@ export function ComplaintDetailsPage() {
       toast.error('Failed to load complaint');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (feedbackRating === 0) {
+      toast.error('Please select a rating');
+      return;
+    }
+
+    try {
+      setSubmittingFeedback(true);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/complaints/${id}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          rating: feedbackRating,
+          comment: feedbackComment
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit feedback');
+      }
+
+      toast.success('Thank you for your feedback!');
+      setShowFeedbackForm(false);
+      setFeedbackRating(0);
+      setFeedbackComment('');
+      loadComplaint(); // Reload to show submitted feedback
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      toast.error(error.message || 'Failed to submit feedback');
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -298,6 +336,125 @@ export function ComplaintDetailsPage() {
                   />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Feedback Section */}
+          {complaint.status === 'resolved' && (
+            <div className="card-base p-6">
+              {complaint.feedback && complaint.feedback.submittedAt ? (
+                <div>
+                  <h3 className="text-lg font-semibold text-civic-text-primary mb-4 flex items-center gap-2">
+                    <CheckCircle2 size={20} className="text-status-resolved" />
+                    Your Feedback
+                  </h3>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          size={20}
+                          className={star <= complaint.feedback.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}
+                        />
+                      ))}
+                      <span className="ml-2 font-medium text-civic-text-primary">
+                        {complaint.feedback.rating}/5
+                      </span>
+                    </div>
+                    {complaint.feedback.comment && (
+                      <p className="text-sm text-civic-text-secondary mt-2">
+                        "{complaint.feedback.comment}"
+                      </p>
+                    )}
+                    <p className="text-xs text-civic-text-secondary mt-2">
+                      Submitted on {formatDate(complaint.feedback.submittedAt)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-lg font-semibold text-civic-text-primary mb-4 flex items-center gap-2">
+                    <Star size={20} className="text-civic-blue" />
+                    Submit Feedback
+                  </h3>
+                  <p className="text-sm text-civic-text-secondary mb-4">
+                    How satisfied are you with the resolution of this complaint?
+                  </p>
+                  {!showFeedbackForm ? (
+                    <Button
+                      onClick={() => setShowFeedbackForm(true)}
+                      fullWidth
+                      variant="primary"
+                    >
+                      <Star size={16} className="mr-2" />
+                      Rate This Resolution
+                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-civic-text-primary mb-2">
+                          Your Rating <span className="text-status-rejected">*</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setFeedbackRating(star)}
+                              className="p-1 hover:scale-110 transition-transform"
+                            >
+                              <Star
+                                size={28}
+                                className={star <= feedbackRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 hover:text-yellow-200'}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-civic-text-secondary mt-1">
+                          {feedbackRating === 1 && 'Poor'}
+                          {feedbackRating === 2 && 'Fair'}
+                          {feedbackRating === 3 && 'Good'}
+                          {feedbackRating === 4 && 'Very Good'}
+                          {feedbackRating === 5 && 'Excellent'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-civic-text-primary mb-2">
+                          Additional Comments (Optional)
+                        </label>
+                        <textarea
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                          placeholder="Share your experience with this resolution..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-civic-blue resize-none"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleSubmitFeedback}
+                          disabled={submittingFeedback || feedbackRating === 0}
+                          className="flex-1"
+                          loading={submittingFeedback}
+                        >
+                          Submit Feedback
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setShowFeedbackForm(false);
+                            setFeedbackRating(0);
+                            setFeedbackComment('');
+                          }}
+                          disabled={submittingFeedback}
+                          variant="secondary"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

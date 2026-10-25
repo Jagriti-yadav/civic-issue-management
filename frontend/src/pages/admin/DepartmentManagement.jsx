@@ -48,10 +48,12 @@ export function DepartmentManagement() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isOfficersModalOpen, setIsOfficersModalOpen] = useState(false);
   const [isComplaintsModalOpen, setIsComplaintsModalOpen] = useState(false);
+  const [isCreateDeptHeadModalOpen, setIsCreateDeptHeadModalOpen] = useState(false);
   const [departmentOfficers, setDepartmentOfficers] = useState([]);
   const [departmentComplaints, setDepartmentComplaints] = useState([]);
   const [loadingOfficers, setLoadingOfficers] = useState(false);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
+  const [creatingDeptHead, setCreatingDeptHead] = useState(false);
 
   // Create/Edit modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -64,6 +66,16 @@ export function DepartmentManagement() {
     name: '',
     description: ''
   });
+
+  // Department Head form state
+  const [deptHeadFormData, setDeptHeadFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    designation: '',
+    phone: ''
+  });
+  const [deptHeadErrors, setDeptHeadErrors] = useState({});
 
   // Status change confirmation
   const [statusChangeDepartment, setStatusChangeDepartment] = useState(null);
@@ -336,6 +348,101 @@ export function DepartmentManagement() {
     }
   };
 
+  const handleCreateDeptHead = (department) => {
+    setSelectedDepartment(department);
+    setDeptHeadFormData({
+      name: '',
+      email: '',
+      password: '',
+      designation: '',
+      phone: ''
+    });
+    setDeptHeadErrors({});
+    setIsCreateDeptHeadModalOpen(true);
+  };
+
+  const handleCloseCreateDeptHeadModal = () => {
+    setIsCreateDeptHeadModalOpen(false);
+    setSelectedDepartment(null);
+    setDeptHeadFormData({
+      name: '',
+      email: '',
+      password: '',
+      designation: '',
+      phone: ''
+    });
+    setDeptHeadErrors({});
+  };
+
+  const validateDeptHeadForm = () => {
+    const errors = {};
+    
+    if (!deptHeadFormData.name) {
+      errors.name = 'Name is required';
+    } else if (deptHeadFormData.name.trim().length < 2) {
+      errors.name = 'Name must be at least 2 characters';
+    }
+
+    if (!deptHeadFormData.email) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(deptHeadFormData.email)) {
+      errors.email = 'Please enter a valid email';
+    }
+
+    if (!deptHeadFormData.password) {
+      errors.password = 'Password is required';
+    } else if (deptHeadFormData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+
+    if (deptHeadFormData.phone && !/^\+?[1-9]\d{1,14}$/.test(deptHeadFormData.phone.replace(/[\s\-\(\)]/g, ''))) {
+      errors.phone = 'Please enter a valid phone number';
+    }
+
+    setDeptHeadErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreateDeptHeadSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!selectedDepartment) return;
+
+    if (!validateDeptHeadForm()) return;
+
+    try {
+      setCreatingDeptHead(true);
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/users/department-heads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          ...deptHeadFormData,
+          department: selectedDepartment.name
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create department head');
+      }
+
+      toast.success('Department Head created successfully');
+      handleCloseCreateDeptHeadModal();
+      loadDepartments();
+
+    } catch (err) {
+      console.error('Failed to create department head:', err);
+      toast.error(err.message || 'Failed to create department head');
+    } finally {
+      setCreatingDeptHead(false);
+    }
+  };
+
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
@@ -409,6 +516,30 @@ export function DepartmentManagement() {
       )
     },
     {
+      key: 'departmentHeadCount',
+      header: 'Dept Head',
+      width: 'w-28',
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          {row.departmentHeadCount > 0 ? (
+            <>
+              <UserCheck size={14} className="text-status-resolved" />
+              <span className="text-sm text-civic-text-primary font-medium">
+                {row.departmentHeadCount}
+              </span>
+            </>
+          ) : (
+            <>
+              <AlertTriangle size={14} className="text-status-pending" />
+              <span className="text-sm text-status-pending font-medium">
+                None
+              </span>
+            </>
+          )}
+        </div>
+      )
+    },
+    {
       key: 'complaintCount',
       header: 'Complaints',
       width: 'w-28',
@@ -478,6 +609,16 @@ export function DepartmentManagement() {
             <FileText size={14} />
             Complaints
           </button>
+          {row.departmentHeadCount === 0 ? (
+            <button
+              onClick={() => handleCreateDeptHead(row)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-status-pending hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+              title="Create Department Head"
+            >
+              <UserCheck size={14} />
+              Add Head
+            </button>
+          ) : null}
           {row.isActive ? (
             <button
               onClick={() => handleStatusChange(row, false)}
@@ -535,6 +676,45 @@ export function DepartmentManagement() {
           color="teal"
         />
       </div>
+
+      {/* Warning Banner for Departments Without Heads */}
+      {departments.filter(d => d.isActive && d.departmentHeadCount === 0).length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={20} className="text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-amber-900 mb-2">
+                Departments Without Department Heads
+              </h4>
+              <p className="text-sm text-amber-800 mb-3">
+                The following active departments have no department head assigned. Complaints cannot be assigned to officers without a department head.
+              </p>
+              <div className="space-y-2">
+                {departments
+                  .filter(d => d.isActive && d.departmentHeadCount === 0)
+                  .map(dept => (
+                    <div key={dept._id} className="flex items-center justify-between bg-white rounded-md p-2 border border-amber-200">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-amber-900">{dept.name}</span>
+                        {dept.pendingComplaintCount > 0 && (
+                          <Badge variant="error" size="sm">
+                            {dept.pendingComplaintCount} pending complaints
+                          </Badge>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleCreateDeptHead(dept)}
+                        className="text-sm font-medium text-amber-700 hover:text-amber-900 hover:bg-amber-100 px-3 py-1 rounded transition-colors"
+                      >
+                        Add Head
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters Section */}
       <div className="card-base p-4 mb-6">
@@ -944,6 +1124,106 @@ export function DepartmentManagement() {
         loading={updatingStatus}
         variant={statusChangeDepartment?.newStatus ? 'success' : 'error'}
       />
+
+      {/* Create Department Head Modal */}
+      <Modal
+        isOpen={isCreateDeptHeadModalOpen}
+        onClose={handleCloseCreateDeptHeadModal}
+        title={`Create Department Head for ${selectedDepartment?.name}`}
+      >
+        <form onSubmit={handleCreateDeptHeadSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-civic-text-primary mb-1.5">
+              Full Name <span className="text-status-rejected">*</span>
+            </label>
+            <Input
+              value={deptHeadFormData.name}
+              onChange={(e) => setDeptHeadFormData({ ...deptHeadFormData, name: e.target.value })}
+              placeholder="Enter full name"
+              error={deptHeadErrors.name}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-civic-text-primary mb-1.5">
+              Email Address <span className="text-status-rejected">*</span>
+            </label>
+            <Input
+              type="email"
+              value={deptHeadFormData.email}
+              onChange={(e) => setDeptHeadFormData({ ...deptHeadFormData, email: e.target.value })}
+              placeholder="Enter email address"
+              error={deptHeadErrors.email}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-civic-text-primary mb-1.5">
+              Password <span className="text-status-rejected">*</span>
+            </label>
+            <Input
+              type="password"
+              value={deptHeadFormData.password}
+              onChange={(e) => setDeptHeadFormData({ ...deptHeadFormData, password: e.target.value })}
+              placeholder="Enter password (min. 6 characters)"
+              error={deptHeadErrors.password}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-civic-text-primary mb-1.5">
+              Designation
+            </label>
+            <Input
+              value={deptHeadFormData.designation}
+              onChange={(e) => setDeptHeadFormData({ ...deptHeadFormData, designation: e.target.value })}
+              placeholder="Enter designation (optional)"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-civic-text-primary mb-1.5">
+              Phone Number
+            </label>
+            <Input
+              type="tel"
+              value={deptHeadFormData.phone}
+              onChange={(e) => setDeptHeadFormData({ ...deptHeadFormData, phone: e.target.value })}
+              placeholder="Enter phone number (optional)"
+              error={deptHeadErrors.phone}
+            />
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-amber-800">
+                <p className="font-medium mb-1">Department: {selectedDepartment?.name}</p>
+                <p className="text-amber-700">
+                  This department head will be assigned to <strong>{selectedDepartment?.name}</strong>.
+                  They will be able to manage officers and assign complaints for this department.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCloseCreateDeptHeadModal}
+              fullWidth
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={creatingDeptHead}
+              fullWidth
+            >
+              Create Department Head
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

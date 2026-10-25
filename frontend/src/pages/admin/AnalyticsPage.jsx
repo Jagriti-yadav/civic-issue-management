@@ -12,7 +12,7 @@ import { useToast } from '@/context/ToastContext';
 import analyticsService from '@/services/analyticsService';
 import {
   BarChart3, FileText, CheckCircle2, Clock, TrendingUp,
-  AlertTriangle, Building2, Users, Calendar, Download
+  AlertTriangle, Building2, Users, Calendar, Download, Star, Smile, Frown, Meh
 } from 'lucide-react';
 import {
   BarChart,
@@ -47,12 +47,17 @@ export function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [feedbackAnalytics, setFeedbackAnalytics] = useState(null);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
 
   // Date filter state
   const [dateRange, setDateRange] = useState('7');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [isCustomRange, setIsCustomRange] = useState(false);
+
+  // Feedback filter state
+  const [feedbackDepartment, setFeedbackDepartment] = useState('');
 
   const loadAnalytics = async () => {
     try {
@@ -84,8 +89,39 @@ export function AnalyticsPage() {
 
   useEffect(() => {
     loadAnalytics();
+    loadFeedbackAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, isCustomRange, customStartDate, customEndDate]);
+  }, [dateRange, isCustomRange, customStartDate, customEndDate, feedbackDepartment]);
+
+  const loadFeedbackAnalytics = async () => {
+    try {
+      setLoadingFeedback(true);
+
+      const params = {};
+      if (feedbackDepartment) params.department = feedbackDepartment;
+      if (isCustomRange && customStartDate) params.startDate = customStartDate;
+      if (isCustomRange && customEndDate) params.endDate = customEndDate;
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/complaints/feedback/analytics?${new URLSearchParams(params)}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load feedback analytics');
+      }
+
+      setFeedbackAnalytics(data);
+    } catch (err) {
+      console.error('Failed to load feedback analytics:', err);
+      // Don't show error toast for feedback analytics, just log it
+    } finally {
+      setLoadingFeedback(false);
+    }
+  };
 
   const handleDateRangeChange = (value) => {
     if (value === 'custom') {
@@ -504,6 +540,162 @@ export function AnalyticsPage() {
             columns={getOfficerColumns()}
             data={analytics?.officerPerformance || []}
           />
+        )}
+      </div>
+
+      {/* Feedback Analytics */}
+      <div className="card-base p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-civic-text-primary flex items-center gap-2">
+            <Star size={20} className="text-yellow-500" />
+            Citizen Feedback Analytics
+          </h3>
+          <div className="flex items-center gap-3">
+            <Select
+              value={feedbackDepartment}
+              onChange={(e) => setFeedbackDepartment(e.target.value)}
+              placeholder="All Departments"
+              className="w-48"
+              options={[
+                { value: '', label: 'All Departments' },
+                ...(analytics?.departments?.map(d => ({ value: d._id, label: d.name })) || [])
+              ]}
+            />
+          </div>
+        </div>
+
+        {loadingFeedback ? (
+          <div className="flex items-center justify-center py-8">
+            <LoadingSpinner size="md" />
+          </div>
+        ) : feedbackAnalytics?.overallStats?.totalFeedback === 0 ? (
+          <EmptyState message="No feedback data available yet" icon={Star} />
+        ) : (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Total Feedback"
+                value={feedbackAnalytics?.overallStats?.totalFeedback || 0}
+                icon={Star}
+                color="yellow"
+              />
+              <StatCard
+                label="Average Rating"
+                value={feedbackAnalytics?.overallStats?.averageRating?.toFixed(1) || '0.0'}
+                icon={Smile}
+                color="green"
+              />
+              <StatCard
+                label="Positive (4-5 Stars)"
+                value={(feedbackAnalytics?.overallStats?.rating4 || 0) + (feedbackAnalytics?.overallStats?.rating5 || 0)}
+                icon={Smile}
+                color="green"
+              />
+              <StatCard
+                label="Negative (1-2 Stars)"
+                value={(feedbackAnalytics?.overallStats?.rating1 || 0) + (feedbackAnalytics?.overallStats?.rating2 || 0)}
+                icon={Frown}
+                color="red"
+              />
+            </div>
+
+            {/* Rating Distribution */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-civic-text-primary mb-3">Rating Distribution</h4>
+              <div className="space-y-2">
+                {[5, 4, 3, 2, 1].map((rating) => (
+                  <div key={rating} className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 w-24">
+                      <span className="text-sm font-medium text-civic-text-primary">{rating} Star</span>
+                      <Star size={14} className="fill-yellow-400 text-yellow-400" />
+                    </div>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-yellow-400 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${feedbackAnalytics?.overallStats?.totalFeedback > 0
+                            ? (feedbackAnalytics?.overallStats[`rating${rating}`] / feedbackAnalytics?.overallStats?.totalFeedback) * 100
+                            : 0}%`
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-civic-text-primary w-12 text-right">
+                      {feedbackAnalytics?.overallStats[`rating${rating}`] || 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Department-wise Feedback */}
+            {feedbackAnalytics?.departmentStats?.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-civic-text-primary mb-3">Department Performance</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-civic-border">
+                        <th className="text-left py-2 px-3 text-sm font-medium text-civic-text-secondary">Department</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">Total</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">Avg Rating</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">5★</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">4★</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">3★</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">2★</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">1★</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feedbackAnalytics.departmentStats.map((dept, idx) => (
+                        <tr key={idx} className="border-b border-civic-border hover:bg-civic-hover">
+                          <td className="py-2 px-3 text-sm text-civic-text-primary">{dept._id || 'Unknown'}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{dept.totalFeedback}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right font-medium">
+                            {dept.averageRating?.toFixed(1) || '0.0'}
+                          </td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{dept.rating5}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{dept.rating4}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{dept.rating3}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{dept.rating2}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{dept.rating1}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Officer-wise Feedback */}
+            {feedbackAnalytics?.officerStats?.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-civic-text-primary mb-3">Officer Performance (by Feedback)</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-civic-border">
+                        <th className="text-left py-2 px-3 text-sm font-medium text-civic-text-secondary">Officer</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">Total Feedback</th>
+                        <th className="text-right py-2 px-3 text-sm font-medium text-civic-text-secondary">Avg Rating</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feedbackAnalytics.officerStats.map((officer, idx) => (
+                        <tr key={idx} className="border-b border-civic-border hover:bg-civic-hover">
+                          <td className="py-2 px-3 text-sm text-civic-text-primary">{officer.officerName || 'Unknown'}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right">{officer.totalFeedback}</td>
+                          <td className="py-2 px-3 text-sm text-civic-text-primary text-right font-medium">
+                            {officer.averageRating?.toFixed(1) || '0.0'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

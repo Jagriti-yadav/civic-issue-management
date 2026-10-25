@@ -4,7 +4,8 @@ import {
   getDashboardStats,
   getDashboardTrends,
   getRecentComplaints,
-  getRecentUsers
+  getRecentUsers,
+  getDepartmentHeadDashboardStats
 } from '../controllers/dashboardController.js';
 
 const router = express.Router();
@@ -20,5 +21,8 @@ router.get('/recent-complaints', auth, authorize('super_admin'), getRecentCompla
 
 // Get recent users (super_admin only)
 router.get('/recent-users', auth, authorize('super_admin'), getRecentUsers);
+
+// Get department head dashboard statistics (department_head only)
+router.get('/department-head/stats', auth, authorize('department_head'), getDepartmentHeadDashboardStats);
 
 export default router;

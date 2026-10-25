@@ -35,7 +35,7 @@ export const auth = async (req, res, next) => {
         });
       }
 
-      req.user = { ...decoded, role: user.role };
+      req.user = { ...decoded, id: decoded.id, role: user.role, department: user.department };
       next();
     } catch (jwtError) {
       return res.status(401).json({

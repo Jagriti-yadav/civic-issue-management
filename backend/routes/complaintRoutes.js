@@ -12,7 +12,10 @@ import {
   getComplaintStats,
   getUserComplaints,
   getMyAssignedComplaints,
-  getOfficerDashboardStats
+  getOfficerDashboardStats,
+  submitFeedback,
+  getDepartmentFeedback,
+  getFeedbackAnalytics
 } from '../controllers/complaintController.js';
 
 const router = express.Router();
@@ -52,5 +55,14 @@ router.patch('/:id/assign', auth, authorize('department_head', 'super_admin'), a
 
 // Add remark to complaint (authenticated users)
 router.post('/:id/remarks', auth, addRemark);
+
+// Submit feedback for resolved complaint (citizen only)
+router.post('/:id/feedback', auth, authorize('citizen'), submitFeedback);
+
+// Get department feedback (department head only)
+router.get('/feedback/department', auth, authorize('department_head'), getDepartmentFeedback);
+
+// Get system-wide feedback analytics (super_admin only)
+router.get('/feedback/analytics', auth, authorize('super_admin'), getFeedbackAnalytics);
 
 export default router;

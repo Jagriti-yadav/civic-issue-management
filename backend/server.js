@@ -41,10 +41,14 @@ app.use((req, res, next) => {
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  max: 100, // Increased limit for testing
   message: 'Too many authentication attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for localhost during development
+    return req.ip === '127.0.0.1' || req.ip === '::1';
+  }
 });
 
 // General rate limiting for all API endpoints

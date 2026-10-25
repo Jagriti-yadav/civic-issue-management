@@ -44,6 +44,7 @@ export const register = async (req, res) => {
     }
 
     // Create new user - force role to be citizen for public registration
+    // Ignore any role parameter from frontend to prevent privilege escalation
     const userData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -55,7 +56,7 @@ export const register = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id.toString(), email: user.email, role: user.role },
+      { id: user._id.toString(), email: user.email, role: user.role, department: user.department },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
@@ -66,7 +67,7 @@ export const register = async (req, res) => {
       message: 'Registration successful',
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role,
@@ -86,7 +87,7 @@ export const register = async (req, res) => {
 // Login user
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, selectedRole } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -122,9 +123,26 @@ export const login = async (req, res) => {
       });
     }
 
+    // Role validation: if a role was selected, verify it matches the user's actual role
+    if (selectedRole && selectedRole !== user.role) {
+      const roleDisplayNames = {
+        citizen: 'Citizen',
+        officer: 'Officer',
+        department_head: 'Department Head',
+        super_admin: 'Super Admin'
+      };
+      
+      const article = ['a', 'e', 'i', 'o', 'u'].includes(roleDisplayNames[user.role][0].toLowerCase()) ? 'an' : 'a';
+      
+      return res.status(403).json({
+        success: false,
+        message: `Your account is registered as ${article} ${roleDisplayNames[user.role]}. Please select ${roleDisplayNames[user.role]} Login.`
+      });
+    }
+
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id.toString(), email: user.email, role: user.role },
+      { id: user._id.toString(), email: user.email, role: user.role, department: user.department },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
@@ -135,7 +153,7 @@ export const login = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role,

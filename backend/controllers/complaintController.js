@@ -36,7 +36,7 @@ export const createComplaint = async (req, res) => {
       'roads': 'Public Works',
       'water': 'Water Department',
       'electricity': 'Electricity Department',
-      'sanitation': 'Sanitation Department',
+      'sanitation': 'Sanitation',
       'public_safety': 'Police Department',
       'other': 'General Administration'
     };
@@ -174,7 +174,7 @@ export const getComplaintById = async (req, res) => {
     }
 
     // Security: Citizens can only view their own complaints
-    if (req.user.role === 'citizen' && complaint.submittedBy.toString() !== req.user.id) {
+    if (req.user.role === 'citizen' && complaint.submittedBy.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: You can only view your own complaints'
@@ -182,11 +182,15 @@ export const getComplaintById = async (req, res) => {
     }
 
     // Security: Officers can only view complaints assigned to them
-    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied: You can only view complaints assigned to you'
-      });
+    if (req.user.role === 'officer') {
+      // Handle both populated objects and raw ObjectIds
+      const assignedToId = complaint.assignedTo?._id || complaint.assignedTo;
+      if (!assignedToId || assignedToId.toString() !== req.user.id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only view complaints assigned to you'
+        });
+      }
     }
 
     res.status(200).json({
@@ -284,7 +288,7 @@ export const updateComplaintStatus = async (req, res) => {
     }
 
     // Security: Officers can only update complaints assigned to them
-    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id) {
+    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: You can only update complaints assigned to you'
@@ -700,7 +704,7 @@ export const addRemark = async (req, res) => {
     }
 
     // Security: Citizens can only add remarks to their own complaints
-    if (req.user.role === 'citizen' && complaint.submittedBy.toString() !== req.user.id) {
+    if (req.user.role === 'citizen' && complaint.submittedBy.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: You can only add remarks to your own complaints'
@@ -708,7 +712,7 @@ export const addRemark = async (req, res) => {
     }
 
     // Security: Officers can only add remarks to complaints assigned to them
-    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id) {
+    if (req.user.role === 'officer' && complaint.assignedTo?.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: You can only add remarks to complaints assigned to you'
@@ -762,7 +766,7 @@ export const getUserComplaints = async (req, res) => {
     const { status, category, priority, department } = req.query;
 
     // Security: Users can only view their own complaints unless they are super_admin
-    if (req.user.role !== 'super_admin' && req.user.id !== userId) {
+    if (req.user.role !== 'super_admin' && req.user.id !== userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: You can only view your own complaints'
@@ -859,7 +863,7 @@ export const getComplaintStats = async (req, res) => {
 // Get complaints assigned to the authenticated officer
 export const getMyAssignedComplaints = async (req, res) => {
   try {
-    const officerId = req.user.id; // Get officer ID from JWT token
+    const officerId = req.user.id.toString(); // Get officer ID from JWT token and convert to string
     const { status, category, priority } = req.query;
 
     // Build filter for assigned complaints
@@ -893,7 +897,7 @@ export const getMyAssignedComplaints = async (req, res) => {
 // Get officer dashboard statistics
 export const getOfficerDashboardStats = async (req, res) => {
   try {
-    const officerId = req.user.id; // Get officer ID from JWT token
+    const officerId = req.user.id.toString(); // Get officer ID from JWT token and convert to string
 
     // Convert to ObjectId for proper MongoDB comparison
     const officerObjectId = new mongoose.Types.ObjectId(officerId);
@@ -956,6 +960,320 @@ export const getOfficerDashboardStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch dashboard statistics',
+      error: error.message
+    });
+  }
+};
+
+// Submit feedback for a resolved complaint (citizen only)
+export const submitFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+    const userId = req.user.id;
+
+    // Validate required fields
+    if (!rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating is required'
+      });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5'
+      });
+    }
+
+    // Find complaint
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: 'Complaint not found'
+      });
+    }
+
+    // Verify complaint belongs to the user
+    if (complaint.submittedBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only submit feedback for your own complaints'
+      });
+    }
+
+    // Verify complaint is resolved
+    if (complaint.status !== 'resolved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback can only be submitted for resolved complaints'
+      });
+    }
+
+    // Check if feedback already submitted
+    if (complaint.feedback && complaint.feedback.submittedAt) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback has already been submitted for this complaint'
+      });
+    }
+
+    // Update complaint with feedback
+    complaint.feedback = {
+      rating,
+      comment: comment || '',
+      submittedAt: new Date(),
+      submittedBy: userId
+    };
+
+    await complaint.save();
+
+    // Notify department head about feedback
+    try {
+      const departmentHead = await User.findOne({
+        role: 'department_head',
+        department: complaint.department,
+        isActive: true
+      });
+
+      if (departmentHead) {
+        await Notification.create({
+          recipient: departmentHead._id,
+          title: 'New Feedback Received',
+          message: `Complaint ${complaint.complaintId} received a ${rating}-star rating from the citizen`,
+          type: 'feedback_received',
+          relatedComplaint: complaint._id
+        });
+      }
+    } catch (notificationError) {
+      // Don't fail the feedback submission if notification fails
+      console.error('Failed to create notification:', notificationError);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Feedback submitted successfully',
+      feedback: complaint.feedback
+    });
+  } catch (error) {
+    console.error('Submit feedback error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit feedback',
+      error: error.message
+    });
+  }
+};
+
+// Get feedback for a department (department head only)
+export const getDepartmentFeedback = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      rating = '',
+      sortBy = 'submittedAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const department = req.user.department;
+
+    if (!department) {
+      return res.status(400).json({
+        success: false,
+        message: 'No department assigned to your account'
+      });
+    }
+
+    // Build query
+    const query = {
+      department,
+      status: 'resolved',
+      'feedback.submittedAt': { $exists: true }
+    };
+
+    // Filter by rating
+    if (rating) {
+      query['feedback.rating'] = parseInt(rating);
+    }
+
+    // Sort options
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const [complaints, total] = await Promise.all([
+      Complaint.find(query)
+        .populate('submittedBy', 'name email')
+        .populate('assignedTo', 'name email')
+        .populate('feedback.submittedBy', 'name email')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Complaint.countDocuments(query)
+    ]);
+
+    // Calculate feedback statistics
+    const stats = await Complaint.aggregate([
+      {
+        $match: {
+          department,
+          status: 'resolved',
+          'feedback.submittedAt': { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalFeedback: { $sum: 1 },
+          averageRating: { $avg: '$feedback.rating' },
+          rating1: { $sum: { $cond: [{ $eq: ['$feedback.rating', 1] }, 1, 0] } },
+          rating2: { $sum: { $cond: [{ $eq: ['$feedback.rating', 2] }, 1, 0] } },
+          rating3: { $sum: { $cond: [{ $eq: ['$feedback.rating', 3] }, 1, 0] } },
+          rating4: { $sum: { $cond: [{ $eq: ['$feedback.rating', 4] }, 1, 0] } },
+          rating5: { $sum: { $cond: [{ $eq: ['$feedback.rating', 5] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    const feedbackStats = stats[0] || {
+      totalFeedback: 0,
+      averageRating: 0,
+      rating1: 0,
+      rating2: 0,
+      rating3: 0,
+      rating4: 0,
+      rating5: 0
+    };
+
+    res.status(200).json({
+      success: true,
+      complaints,
+      feedbackStats,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Get department feedback error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch department feedback',
+      error: error.message
+    });
+  }
+};
+
+// Get system-wide feedback analytics (super_admin only)
+export const getFeedbackAnalytics = async (req, res) => {
+  try {
+    const { department = '', startDate = '', endDate = '' } = req.query;
+
+    // Build query
+    const query = {
+      status: 'resolved',
+      'feedback.submittedAt': { $exists: true }
+    };
+
+    if (department) {
+      query.department = department;
+    }
+
+    if (startDate || endDate) {
+      query['feedback.submittedAt'] = {};
+      if (startDate) {
+        query['feedback.submittedAt'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query['feedback.submittedAt'].$lte = new Date(endDate);
+      }
+    }
+
+    // Calculate overall statistics
+    const overallStats = await Complaint.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalFeedback: { $sum: 1 },
+          averageRating: { $avg: '$feedback.rating' },
+          rating1: { $sum: { $cond: [{ $eq: ['$feedback.rating', 1] }, 1, 0] } },
+          rating2: { $sum: { $cond: [{ $eq: ['$feedback.rating', 2] }, 1, 0] } },
+          rating3: { $sum: { $cond: [{ $eq: ['$feedback.rating', 3] }, 1, 0] } },
+          rating4: { $sum: { $cond: [{ $eq: ['$feedback.rating', 4] }, 1, 0] } },
+          rating5: { $sum: { $cond: [{ $eq: ['$feedback.rating', 5] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    // Calculate department-wise statistics
+    const departmentStats = await Complaint.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$department',
+          totalFeedback: { $sum: 1 },
+          averageRating: { $avg: '$feedback.rating' },
+          rating5: { $sum: { $cond: [{ $eq: ['$feedback.rating', 5] }, 1, 0] } },
+          rating4: { $sum: { $cond: [{ $eq: ['$feedback.rating', 4] }, 1, 0] } },
+          rating3: { $sum: { $cond: [{ $eq: ['$feedback.rating', 3] }, 1, 0] } },
+          rating2: { $sum: { $cond: [{ $eq: ['$feedback.rating', 2] }, 1, 0] } },
+          rating1: { $sum: { $cond: [{ $eq: ['$feedback.rating', 1] }, 1, 0] } }
+        }
+      },
+      { $sort: { averageRating: -1 } }
+    ]);
+
+    // Calculate officer-wise statistics
+    const officerStats = await Complaint.aggregate([
+      { $match: query },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedTo',
+          foreignField: '_id',
+          as: 'officer'
+        }
+      },
+      { $unwind: '$officer' },
+      {
+        $group: {
+          _id: '$assignedTo',
+          officerName: { $first: '$officer.name' },
+          totalFeedback: { $sum: 1 },
+          averageRating: { $avg: '$feedback.rating' }
+        }
+      },
+      { $sort: { averageRating: -1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      overallStats: overallStats[0] || {
+        totalFeedback: 0,
+        averageRating: 0,
+        rating1: 0,
+        rating2: 0,
+        rating3: 0,
+        rating4: 0,
+        rating5: 0
+      },
+      departmentStats,
+      officerStats
+    });
+  } catch (error) {
+    console.error('Get feedback analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch feedback analytics',
       error: error.message
     });
   }

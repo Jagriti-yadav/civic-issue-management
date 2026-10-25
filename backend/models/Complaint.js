@@ -99,6 +99,27 @@ const complaintSchema = new mongoose.Schema({
     category: String,
     priority: String,
     confidence: Number
+  },
+  feedback: {
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      required: false
+    },
+    comment: {
+      type: String,
+      required: false
+    },
+    submittedAt: {
+      type: Date,
+      required: false
+    },
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false
+    }
   }
 }, {
   timestamps: true,

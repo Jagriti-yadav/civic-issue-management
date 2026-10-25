@@ -10,9 +10,13 @@ import {
   getUserComplaints,
   getDepartments,
   getOfficersByDepartment,
+  getDepartmentOfficersWithWorkload,
+  getOfficerDetailsForDepartmentHead,
   getUserById,
   updateUser,
-  changePassword
+  changePassword,
+  createDepartmentHead,
+  createSuperAdmin
 } from '../controllers/userController.js';
 
 const router = express.Router();
@@ -24,9 +28,22 @@ router.get('/departments/list', auth, authorize('department_head', 'super_admin'
 // Get officers by department (admin, department_head, super_admin) - must come before /officers/:id
 router.get('/officers/department/:department', auth, authorize('department_head', 'super_admin'), getOfficersByDepartment);
 
+// Department Head routes for officer management
+// Get officers with workload for Department Head
+router.get('/officers/department-head/workload', auth, authorize('department_head'), getDepartmentOfficersWithWorkload);
+
+// Get officer details with assigned complaints for Department Head
+router.get('/officers/department-head/:id', auth, authorize('department_head'), getOfficerDetailsForDepartmentHead);
+
 // Super Admin routes for officer management
 // Create officer account (super_admin only)
 router.post('/officers', auth, authorize('super_admin'), createOfficer);
+
+// Create department head account (super_admin only)
+router.post('/department-heads', auth, authorize('super_admin'), createDepartmentHead);
+
+// Create super admin account (super_admin only - for creating additional admins)
+router.post('/super-admins', auth, authorize('super_admin'), createSuperAdmin);
 
 // Get all officers with filters (super_admin only)
 router.get('/officers', auth, authorize('super_admin'), getOfficers);

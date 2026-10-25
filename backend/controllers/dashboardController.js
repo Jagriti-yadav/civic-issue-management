@@ -216,3 +216,75 @@ export const getRecentUsers = async (req, res) => {
     });
   }
 };
+
+// Get department head dashboard statistics (department_head only)
+export const getDepartmentHeadDashboardStats = async (req, res) => {
+  try {
+    const department = req.user.department;
+
+    if (!department) {
+      return res.status(400).json({
+        success: false,
+        message: 'No department assigned to your account'
+      });
+    }
+
+    // Get complaint statistics for the department
+    const complaintStats = await Complaint.aggregate([
+      {
+        $match: { department: department }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+          assigned: { $sum: { $cond: [{ $eq: ['$status', 'assigned'] }, 1, 0] } },
+          inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
+          resolved: { $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] } },
+          rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
+          critical: { $sum: { $cond: [{ $eq: ['$priority', 'critical'] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    // Get recent complaints for the department
+    const recentComplaints = await Complaint.find({ department: department })
+      .populate('submittedBy', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    // Get high priority complaints for the department
+    const highPriorityComplaints = await Complaint.find({
+      department: department,
+      priority: { $in: ['high', 'critical'] }
+    })
+      .populate('submittedBy', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ priority: -1, createdAt: -1 })
+      .limit(5);
+
+    res.status(200).json({
+      success: true,
+      stats: complaintStats[0] || {
+        total: 0,
+        pending: 0,
+        assigned: 0,
+        inProgress: 0,
+        resolved: 0,
+        rejected: 0,
+        critical: 0
+      },
+      recentComplaints,
+      highPriorityComplaints
+    });
+  } catch (error) {
+    console.error('Get department head dashboard stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard statistics',
+      error: error.message
+    });
+  }
+};

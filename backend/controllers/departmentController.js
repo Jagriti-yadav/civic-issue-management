@@ -107,14 +107,27 @@ export const getDepartments = async (req, res) => {
           isActive: true
         });
 
+        const departmentHeadCount = await User.countDocuments({
+          role: 'department_head',
+          department: dept.name,
+          isActive: true
+        });
+
         const complaintCount = await Complaint.countDocuments({
           department: dept.name
+        });
+
+        const pendingComplaintCount = await Complaint.countDocuments({
+          department: dept.name,
+          status: 'pending'
         });
 
         return {
           ...dept.toObject(),
           officerCount,
-          complaintCount
+          departmentHeadCount,
+          complaintCount,
+          pendingComplaintCount
         };
       })
     );
@@ -160,8 +173,19 @@ export const getDepartmentById = async (req, res) => {
       isActive: true
     });
 
+    const departmentHeadCount = await User.countDocuments({
+      role: 'department_head',
+      department: department.name,
+      isActive: true
+    });
+
     const complaintCount = await Complaint.countDocuments({
       department: department.name
+    });
+
+    const pendingComplaintCount = await Complaint.countDocuments({
+      department: department.name,
+      status: 'pending'
     });
 
     res.status(200).json({
@@ -169,7 +193,9 @@ export const getDepartmentById = async (req, res) => {
       department: {
         ...department.toObject(),
         officerCount,
-        complaintCount
+        departmentHeadCount,
+        complaintCount,
+        pendingComplaintCount
       }
     });
   } catch (error) {
@@ -264,8 +290,19 @@ export const updateDepartment = async (req, res) => {
       isActive: true
     });
 
+    const departmentHeadCount = await User.countDocuments({
+      role: 'department_head',
+      department: department.name,
+      isActive: true
+    });
+
     const complaintCount = await Complaint.countDocuments({
       department: department.name
+    });
+
+    const pendingComplaintCount = await Complaint.countDocuments({
+      department: department.name,
+      status: 'pending'
     });
 
     res.status(200).json({
@@ -274,7 +311,9 @@ export const updateDepartment = async (req, res) => {
       department: {
         ...department.toObject(),
         officerCount,
-        complaintCount
+        departmentHeadCount,
+        complaintCount,
+        pendingComplaintCount
       }
     });
   } catch (error) {
